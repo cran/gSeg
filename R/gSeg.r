@@ -200,6 +200,12 @@ pval1 = function(n, E, Ebynode, Zmax, skew.corr=TRUE, n0=ceiling(0.05*n), n1=flo
     x3 = x3 + (deg[E[i,1]]-1)*(deg[E[i,2]]-1)
   }  
   x4 = sum(deg*(deg-1)*(sumE-deg))
+  x5 = 0
+  for (i in 1:nrow(E)){
+    j = E[i,1]
+    k = E[i,2]
+    x5 = x5 + length(which(!is.na(match(Ebynode[[j]], Ebynode[[k]]))))
+  }
   s = 1:n
   x = rho_one(n,s,sumE,sumEisq)
   p1 = 2*s*(n-s)/(n*(n-1))
@@ -208,7 +214,7 @@ pval1 = function(n, E, Ebynode, Zmax, skew.corr=TRUE, n0=ceiling(0.05*n), n1=flo
   p4 = 8*s*(s-1)*(s-2)*(n-s)*(n-s-1)*(n-s-2)/(n*(n-1)*(n-2)*(n-3)*(n-4)*(n-5))
   mu = p1*sumE
   sig = sqrt(apply(cbind(p2*sumE + (p1/2-p2)*sumEisq + (p2-p1^2)*sumE^2, rep(0,n)), 1, max))  # sigma
-  ER3 = p1*sumE + p1/2*3*x1 + p2*(3*sumE*(sumE-1)-3*x1) + p3*x2 + p2/2*(3*x4-6*x3) + p4*(sumE*(sumE-1)*(sumE-2)-x2-3*x4+6*x3)
+  ER3 = p1*sumE + p1/2*3*x1 + p2*(3*sumE*(sumE-1)-3*x1) + p3*x2 + p2/2*(3*x4-6*x3) + p4*(sumE*(sumE-1)*(sumE-2)-x2-3*x4+6*x3)- 2*p4*x5
   r = (mu^3 + 3*mu*sig^2 - ER3)/sig^3
   theta_b = rep(0,n)
   pos = which(1+2*r*b>0)
@@ -225,7 +231,7 @@ pval1 = function(n, E, Ebynode, Zmax, skew.corr=TRUE, n0=ceiling(0.05*n), n1=flo
     id1 = which.max(dif)
     id2 = id1 + ceiling(0.03*n)
     id3 = id2 + ceiling(0.09*n)
-    inc = (a[id3]-a[id2])/ceiling(0.03*n)
+    inc = (a[id3]-a[id2])/ceiling(0.06*n)
     a[id2:1] = a[id2+1]-inc*(1:id2)
     a[(n/2+1):n] = a[(n/2):1]
     neg2 = which(a<0)
