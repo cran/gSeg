@@ -231,7 +231,7 @@ pval1 = function(n, E, Ebynode, Zmax, skew.corr=TRUE, n0=ceiling(0.05*n), n1=flo
     id1 = which.max(dif)
     id2 = id1 + ceiling(0.03*n)
     id3 = id2 + ceiling(0.09*n)
-    inc = (a[id3]-a[id2])/ceiling(0.06*n)
+    inc = (a[id3]-a[id2])/(id3-id2)
     a[id2:1] = a[id2+1]-inc*(1:id2)
     a[(n/2+1):n] = a[(n/2):1]
     neg2 = which(a<0)
