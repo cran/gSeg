@@ -12,9 +12,18 @@ gseg1 = function(n, E, statistics=c("all","o","w","g","m"), n0=0.05*n, n1=0.95*n
     Ebynode[[E[i,2]]] = c(Ebynode[[E[i,2]]],E[i,1])
   }
   
+  n0_us = n0
+  n1_us = n1
+  
+  if(n0<2){
+  	n0=2
+  }
+  if(n1>(n-2)){
+  	n1=n-2
+  }
+
   r1$scanZ = gcp1bynode(n,Ebynode,statistics,n0,n1)
-  
-  
+    
   if (pval.appr==TRUE){
     mypval1 = pval1(n,E,Ebynode,r1$scanZ,statistics, skew.corr,n0,n1)
     r1$pval.appr = mypval1
@@ -25,6 +34,12 @@ gseg1 = function(n, E, statistics=c("all","o","w","g","m"), n0=0.05*n, n1=0.95*n
   }
 
   if (length(which(!is.na(match(c("o","ori","original","all"),statistics))))>0){
+  	if(n0_us<=1){
+      cat("  Note: Starting index has been set to n0 = 2 as the original edge-count test statistic is not well-defined for t<2. \n")
+    }
+    if(n1_us>=n-1){
+      cat("  Note: Ending index has been set to n1 =", n-2, " as the original edge-count test statistic is not well-defined for t>",n-2,". \n")
+    }
     cat("Original edge-count scan statistic: \n")
     cat("  Estimated change-point location:", r1$scanZ$ori$tauhat, "\n")
     cat("  Test statistic:", r1$scanZ$ori$Zmax, "\n")
@@ -37,10 +52,10 @@ gseg1 = function(n, E, statistics=c("all","o","w","g","m"), n0=0.05*n, n1=0.95*n
   }
   if (length(which(!is.na(match(c("w","weighted","all"),statistics))))>0){
     cat("Weighted edge-count statistic: \n")
-    if(n0<=1){
+    if(n0_us<=1){
       cat("  Note: Starting index has been set to n0 = 2 as the weighted edge-count test statistic is not well-defined for t<2. \n")
     }
-    if(n1>=n-1){
+    if(n1_us>=n-1){
       cat("  Note: Ending index has been set to n1 =", n-2, " as the weighted edge-count test statistic is not well-defined for t>",n-2,". \n")
     }
     cat("  Estimated change-point location:", r1$scanZ$weighted$tauhat, "\n")
@@ -54,10 +69,10 @@ gseg1 = function(n, E, statistics=c("all","o","w","g","m"), n0=0.05*n, n1=0.95*n
   }
   if (length(which(!is.na(match(c("g","generalized","all"),statistics))))>0){
     cat("Generalized edge-count statistic: \n")
-    if(n0<=1){
+    if(n0_us<=1){
       cat("  Note: Starting index has been set to n0 = 2 as the generalized edge-count test statistic is not well-defined for t<2. \n")
     }
-    if(n1>=n-1){
+    if(n1_us>=n-1){
       cat("  Note: Ending index has been set to n1 =", n-2, " as the generalized edge-count test statistic is not well-defined for t>",n-2,". \n")
     }
     cat("  Estimated change-point location:", r1$scanZ$generalized$tauhat, "\n")
@@ -71,10 +86,10 @@ gseg1 = function(n, E, statistics=c("all","o","w","g","m"), n0=0.05*n, n1=0.95*n
   }
   if (length(which(!is.na(match(c("m","max","all"),statistics))))>0){
     cat("Max-type edge-count statistic: \n")
-    if(n0<=1){
+    if(n0_us<=1){
       cat("  Note: Starting index has been set to n0 = 2 as the max-type edge-count test statistic is not well-defined for t<2. \n")
     }
-    if(n1>=n-1){
+    if(n1_us>=n-1){
       cat("  Note: Ending index has been set to n1 =", n-2, " as the max-type edge-count test statistic is not well-defined for t>",n-2,". \n")
     }
     cat("  Estimated change-point location:", r1$scanZ$max.type$tauhat, "\n")
@@ -101,6 +116,15 @@ gseg2 = function(n, E, statistics=c("all", "o", "w", "g", "m"), l0=0.05*n, l1=0.
     Ebynode[[E[i,2]]] = c(Ebynode[[E[i,2]]],E[i,1])
   }
 
+	l0_us = l0
+	l1_us = l1
+	
+  if(l0<=1){
+     l0 = 2
+   }
+  if(l1>=(n-1)){
+     l1=n-2
+   }
   r1 = list()
   r1$scanZ = gcp2bynode(n,Ebynode,statistics,l0,l1)
 
@@ -115,6 +139,12 @@ gseg2 = function(n, E, statistics=c("all", "o", "w", "g", "m"), l0=0.05*n, l1=0.
 
   if (length(which(!is.na(match(c("o","ori","original","all"),statistics))))>0){
     cat("Original edge-count scan statistic: \n")
+    if(l0_us<=1){
+      cat("  Note: Minimum interval length has been set to l0 = 2 as the original edge-count test statistic is not well-defined for interval length<2. \n")
+    }
+    if(l1_us>=n-1){
+      cat("  Note: Maximum interval length has been set to l1 =", n-2, " as the original edge-count test statistic is not well-defined for interval length>",n-2,". \n")
+    }
     cat("  Estimated change-point location:", r1$scanZ$ori$tauhat, "\n")
     cat("  Test statistic:", r1$scanZ$ori$Zmax, "\n")
     if (pval.appr==TRUE){
@@ -126,10 +156,10 @@ gseg2 = function(n, E, statistics=c("all", "o", "w", "g", "m"), l0=0.05*n, l1=0.
   }
   if (length(which(!is.na(match(c("w","weighted","all"),statistics))))>0){
     cat("Weighted edge-count statistic: \n")
-    if(l0<=1){
+    if(l0_us<=1){
       cat("  Note: Minimum interval length has been set to l0 = 2 as the weighted edge-count test statistic is not well-defined for interval length<2. \n")
     }
-    if(l1>=n-1){
+    if(l1_us>=n-1){
       cat("  Note: Maximum interval length has been set to l1 =", n-2, " as the weighted edge-count test statistic is not well-defined for interval length>",n-2,". \n")
     }
     cat("  Estimated change-point location:", r1$scanZ$weighted$tauhat, "\n")
@@ -143,10 +173,10 @@ gseg2 = function(n, E, statistics=c("all", "o", "w", "g", "m"), l0=0.05*n, l1=0.
   }
   if (length(which(!is.na(match(c("g","generalized","all"),statistics))))>0){
     cat("Generalized edge-count statistic: \n")
-    if(l0<=1){
+    if(l0_us<=1){
       cat("  Note: Minimum interval length has been set to l0 = 2 as the generalized edge-count test statistic is not well-defined for interval length< 2. \n")
     }
-    if(l1>=n-1){
+    if(l1_us>=n-1){
       cat("  Note: Maximum interval length has been set to l1 =", n-2, " as the generalized edge-count test statistic is not well-defined for interval length>",n-2,". \n")
     }
     cat("  Estimated change-point location:", r1$scanZ$generalized$tauhat, "\n")
@@ -160,10 +190,10 @@ gseg2 = function(n, E, statistics=c("all", "o", "w", "g", "m"), l0=0.05*n, l1=0.
   }
   if (length(which(!is.na(match(c("m","max","all"),statistics))))>0){
     cat("Max-type edge-count statistic: \n")
-    if(l0<=1){
+    if(l0_us<=1){
       cat("  Note: Minimum interval length has been set to l0 = 2 as the max-type edge-count test statistic is not well-defined for interval length< 2. \n")
     }
-    if(l1>=n-1){
+    if(l1_us>=n-1){
       cat("  Note: Maximum interval length has been set to l1 =", n-2, " as the max-type edge-count test statistic is not well-defined for interval length>",n-2,". \n")
     }
     cat("  Estimated change-point location:", r1$scanZ$max.type$tauhat, "\n")
@@ -455,56 +485,78 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
 
   if (skew.corr==FALSE){
     if (length(which(!is.na(match(c("o","ori","original","all"), statistics))))>0){
+    		  # if(lower<2){
+       		# lower = 2
+    	   	  # }
+    		  # if(upper>(n-2)){
+       		# upper = n-2
+     	  # }
       b = scanZ$ori$Zmax
-      integrandO = function(s){
-        x = rho_one(n,s,sumE,sumEisq)
-        x*Nu(sqrt(2*b^2*x))
+      if (b>0){
+        integrandO = function(s){
+          x = rho_one(n,s,sumE,sumEisq)
+          x*Nu(sqrt(2*b^2*x))
+        }
+        pval.ori = dnorm(b)*b*integrate(integrandO, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+      }else{
+        pval.ori = 1
       }
-      pval.ori = dnorm(b)*b*integrate(integrandO, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
       output$ori = min(pval.ori,1)
     }
     
-    if (length(which(!is.na(match(c("w","weighted","m","max","g","generalized","all"),statistics))))>0){
-     if(lower<2){
-       lower = 2
-     }
-     if(upper>(n-2)){
-       upper = n-2
-     }
-    }
+    # if (length(which(!is.na(match(c("w","weighted","m","max","g","generalized","all"),statistics))))>0){
+     # if(lower<2){
+       # lower = 2
+     # }
+     # if(upper>(n-2)){
+       # upper = n-2
+     # }
+    # }
     if (length(which(!is.na(match(c("w","weighted","all"), statistics))))>0){
       b = scanZ$weighted$Zmax
-      integrandW = function(t){
-        x = rho_one_Rw(n,t)
-        x*Nu(sqrt(2*b^2*x))
+      if (b>0){
+        integrandW = function(t){
+          x = rho_one_Rw(n,t)
+          x*Nu(sqrt(2*b^2*x))
+        }
+        pval.weighted = dnorm(b)*b*integrate(integrandW, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+      }else{
+        pval.weighted = 1
       }
-      pval.weighted = dnorm(b)*b*integrate(integrandW, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
       output$weighted = min(pval.weighted,1)
     }
     if (length(which(!is.na(match(c("m","max","all"), statistics))))>0){
       b = scanZ$max.type$Zmax
-      integrand1 = function(t){
-        x1 = n/(2*t*(n - t))
-        x1*Nu(sqrt(2*b^2*x1))
+      if (b>0){
+        integrand1 = function(t){
+          x1 = n/(2*t*(n - t))
+          x1*Nu(sqrt(2*b^2*x1))
+        }
+        integrand2 = function(t){
+          x2 = rho_one_Rw(n,t)
+          x2*Nu(sqrt(2*b^2*x2))
+        }
+        pval_u1 = 2*dnorm(b)*b*integrate(integrand1, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+        pval_u2 = dnorm(b)*b*integrate(integrand2, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+        pval.max.type = as.numeric(1-(1-min(pval_u1,1))*(1-min(pval_u2,1)))
+      }else{
+        pval.max.type = 1
       }
-      integrand2 = function(t){
-        x2 = rho_one_Rw(n,t)
-        x2*Nu(sqrt(2*b^2*x2))
-      }
-      pval_u1 = 2*dnorm(b)*b*integrate(integrand1, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-      pval_u2 = dnorm(b)*b*integrate(integrand2, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-      pval.max.type = as.numeric(1-(1-min(pval_u1,1))*(1-min(pval_u2,1)))
       output$max.type = pval.max.type
     }
     if (length(which(!is.na(match(c("g","generalized","all"), statistics))))>0){
       b = scanZ$generalized$Zmax
-      integrandG = function(t,w){
-        x1 = n/(2*t*(n - t))
-        x2 = rho_one_Rw(n,t)
-        2*(x1*cos(w)^2+x2*sin(w)^2)*b*Nu(sqrt(2*b*(x1*cos(w)^2+x2*sin(w)^2)))/(2*pi)
+      if (b>0){
+        integrandG = function(t,w){
+          x1 = n/(2*t*(n - t))
+          x2 = rho_one_Rw(n,t)
+          2*(x1*cos(w)^2+x2*sin(w)^2)*b*Nu(sqrt(2*b*(x1*cos(w)^2+x2*sin(w)^2)))/(2*pi)
+        }
+        integrand0 = function(t) {integrate(integrandG,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
+        pval.generalized = dchisq(b,2)*integrate(Vectorize(integrand0),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
+      }else{
+        pval.generalized = 1
       }
-      integrand0 = function(t) {integrate(integrandG,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
-      pval.generalized = dchisq(b,2)*integrate(Vectorize(integrand0),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
       output$generalized = min(pval.generalized,1)
     }
     return(output)
@@ -526,60 +578,65 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
 
   if (length(which(!is.na(match(c("o","ori","original","all"), statistics))))>0){
     b = scanZ$ori$Zmax
-    s = 1:n
-    x = rho_one(n,s,sumE,sumEisq)
-    p1 = 2*s*(n-s)/(n*(n-1))
-    p2 = 4*s*(s-1)*(n-s)*(n-s-1)/(n*(n-1)*(n-2)*(n-3))
-    p3 = s*(n-s)*((n-s-1)*(n-s-2) + (s-1)*(s-2))/(n*(n-1)*(n-2)*(n-3))
-    p4 = 8*s*(s-1)*(s-2)*(n-s)*(n-s-1)*(n-s-2)/(n*(n-1)*(n-2)*(n-3)*(n-4)*(n-5))
-    mu = p1*sumE
-    sig = sqrt(apply(cbind(p2*sumE + (p1/2-p2)*sumEisq + (p2-p1^2)*sumE^2, rep(0,n)), 1, max))  # sigma
-    ER3 = p1*sumE + p1/2*3*x1 + p2*(3*sumE*(sumE-1)-3*x1) + p3*x2 + p2/2*(3*x4-6*x3) + p4*(sumE*(sumE-1)*(sumE-2)-x2-3*x4+6*x3)- 2*p4*x5
-    r = (mu^3 + 3*mu*sig^2 - ER3)/sig^3
-    theta_b = rep(0,n)
-    pos = which(1+2*r*b>0)
-    theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
-    ratio = exp((b-theta_b)^2/2 + r*theta_b^3/6)/sqrt(1+r*theta_b)
-    a = x*Nu(sqrt(2*b^2*x)) * ratio
-    nn = n-length(pos)
-    if (nn>0.75*n){
-      cat("Extrapolation for skewness-corrected p-value approximation could not be performed. \n")
-      cat("Original edge-count statistic: p-value approximation without skewness correction is reported.\n")
-      integrand = function(s){
-        x = rho_one(n,s,sumE,sumEisq)
-        x*Nu(sqrt(2*b^2*x))
-      }
-      pval.ori = dnorm(b)*b*integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-      output$ori = min(pval.ori,1)
-    }else{
-      if (nn>=(lower-1)+(n-upper)){
-        neg = which(1+2*r*b<=0)
-        dif = neg[2:nn]-neg[1:(nn-1)]
-        id1 = which.max(dif)
-        id2 = id1 + ceiling(0.03*n)
-        id3 = id2 + ceiling(0.09*n)
-        inc = (a[id3]-a[id2])/(id3-id2)
-        a[id2:1] = a[id2+1]-inc*(1:id2)
-        a[(n/2+1):n] = a[(n/2):1]
-        neg2 = which(a<0)
-        a[neg2] = 0
-      }
-      integrand = function(s){
-        a[s]
-      }
-      result = try(dnorm(b)*b*integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
-      if (is.numeric(result)){
-        output$ori = min(result,1)
-      }else{
+    if (b>0){
+      s = 1:n
+      x = rho_one(n,s,sumE,sumEisq)
+      p1 = 2*s*(n-s)/(n*(n-1))
+      p2 = 4*s*(s-1)*(n-s)*(n-s-1)/(n*(n-1)*(n-2)*(n-3))
+      p3 = s*(n-s)*((n-s-1)*(n-s-2) + (s-1)*(s-2))/(n*(n-1)*(n-2)*(n-3))
+      p4 = 8*s*(s-1)*(s-2)*(n-s)*(n-s-1)*(n-s-2)/(n*(n-1)*(n-2)*(n-3)*(n-4)*(n-5))
+      mu = p1*sumE
+      sig = sqrt(apply(cbind(p2*sumE + (p1/2-p2)*sumEisq + (p2-p1^2)*sumE^2, rep(0,n)), 1, max))  # sigma
+      ER3 = p1*sumE + p1/2*3*x1 + p2*(3*sumE*(sumE-1)-3*x1) + p3*x2 + p2/2*(3*x4-6*x3) + p4*(sumE*(sumE-1)*(sumE-2)-x2-3*x4+6*x3)- 2*p4*x5
+      r = (mu^3 + 3*mu*sig^2 - ER3)/sig^3
+      theta_b = rep(0,n)
+      pos = which(1+2*r*b>0)
+      theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
+      ratio = exp((b-theta_b)^2/2 + r*theta_b^3/6)/sqrt(1+r*theta_b)
+      a = x*Nu(sqrt(2*b^2*x)) * ratio
+      nn = n-length(pos)
+      if (nn>0.75*n){
+        cat("Extrapolation for skewness-corrected p-value approximation could not be performed. \n")
         cat("Original edge-count statistic: p-value approximation without skewness correction is reported.\n")
-        b = scanZ$ori$Zmax
         integrand = function(s){
           x = rho_one(n,s,sumE,sumEisq)
           x*Nu(sqrt(2*b^2*x))
         }
         pval.ori = dnorm(b)*b*integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
         output$ori = min(pval.ori,1)
+      }else{
+        if (nn>=(lower-1)+(n-upper)){
+          neg = which(1+2*r*b<=0)
+          dif = neg[2:nn]-neg[1:(nn-1)]
+          id1 = which.max(dif)
+          id2 = id1 + ceiling(0.03*n)
+          id3 = id2 + ceiling(0.09*n)
+          inc = (a[id3]-a[id2])/(id3-id2)
+          a[id2:1] = a[id2+1]-inc*(1:id2)
+          a[(n/2+1):n] = a[(n/2):1]
+          neg2 = which(a<0)
+          a[neg2] = 0
+        }
+        integrand = function(s){
+          a[s]
+        }
+        
+        result = try(dnorm(b)*b*integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
+        if (is.numeric(result)){
+          output$ori = min(result,1)
+        }else{
+          cat("Original edge-count statistic: p-value approximation without skewness correction is reported.\n")
+          b = scanZ$ori$Zmax
+          integrand = function(s){
+            x = rho_one(n,s,sumE,sumEisq)
+            x*Nu(sqrt(2*b^2*x))
+          }
+          pval.ori = dnorm(b)*b*integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          output$ori = min(pval.ori,1)
+        }
       }
+    }else{
+      output$ori = 1
     }
   }
 
@@ -622,14 +679,6 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
     r =  (ER3- 3*mu*sig^2 - mu^3)/sig^3
   
     b = scanZ$weighted$Zmax
-    if(lower<2){
-      lower = 2
-      #print(lower)
-    }
-    if(upper>(n-2)){
-      upper = n-2
-      #print(upper)
-    }
     result.u2 = pval1_sub_2(n,b,r,x,lower,upper)
     r.Rw = r
     x.Rw = x
@@ -643,11 +692,15 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
         }
         cat("Weighted edge-count statistic: p-value approximation without skewness correction is reported.\n")
         b = scanZ$weighted$Zmax
-        integrandW = function(t){
-          x = rho_one_Rw(n,t)
-          x*Nu(sqrt(2*b^2*x))
+        if (b>0){
+          integrandW = function(t){
+            x = rho_one_Rw(n,t)
+            x*Nu(sqrt(2*b^2*x))
+          }
+          pval.weighted = dnorm(b)*b*integrate(integrandW, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+        }else{
+          pval.weighted = 1
         }
-        pval.weighted = dnorm(b)*b*integrate(integrandW, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
         output$weighted = min(pval.weighted,1)
       }
     }
@@ -676,17 +729,21 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
         }
         cat("Max-type edge-count statistic: p-value approximation without skewness correction is reported.\n")
         b = scanZ$max.type$Zmax
-        integrand1 = function(t){
-          x1 = n/(2*t*(n - t))
-          x1*Nu(sqrt(2*b^2*x1))
+        if (b>0){
+          integrand1 = function(t){
+            x1 = n/(2*t*(n - t))
+            x1*Nu(sqrt(2*b^2*x1))
+          }
+          integrand2 = function(t){
+            x2 = rho_one_Rw(n,t)
+            x2*Nu(sqrt(2*b^2*x2))
+          }
+          pval_u1 = 2*dnorm(b)*b*integrate(integrand1, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          pval_u2 = dnorm(b)*b*integrate(integrand2, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          pval.max.type = as.numeric(1-(1-min(pval_u1,1))*(1-min(pval_u2,1)))
+        }else{
+          pval.max.type = 1
         }
-        integrand2 = function(t){
-          x2 = rho_one_Rw(n,t)
-          x2*Nu(sqrt(2*b^2*x2))
-        }
-        pval_u1 = 2*dnorm(b)*b*integrate(integrand1, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-        pval_u2 = dnorm(b)*b*integrate(integrand2, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-        pval.max.type = as.numeric(1-(1-min(pval_u1,1))*(1-min(pval_u2,1)))
         output$max.type = pval.max.type
       }else{
         output$max.type = 1-(1-min(result.u1,1))*(1-min(result.u2,1))
@@ -697,13 +754,17 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
   # for generalized edge-count test, the approximated p-value without skewness correction is reported
   if (length(which(!is.na(match(c("g","generalized","all"), statistics))))>0){
     b = scanZ$generalized$Zmax
-    integrandG = function(t,w){
-      x1 = n/(2*t*(n - t))
-      x2 = rho_one_Rw(n,t)
-      2*(x1*cos(w)^2+x2*sin(w)^2)*b*Nu(sqrt(2*b*(x1*cos(w)^2+x2*sin(w)^2)))/(2*pi)
+    if (b>0){
+      integrandG = function(t,w){
+        x1 = n/(2*t*(n - t))
+        x2 = rho_one_Rw(n,t)
+        2*(x1*cos(w)^2+x2*sin(w)^2)*b*Nu(sqrt(2*b*(x1*cos(w)^2+x2*sin(w)^2)))/(2*pi)
+      }
+      integrand0 = function(t) {integrate(integrandG,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
+      pval.generalized = dchisq(b,2)*integrate(Vectorize(integrand0),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
+    }else{
+      pval.generalized = 1
     }
-    integrand0 = function(t) {integrate(integrandG,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
-    pval.generalized = dchisq(b,2)*integrate(Vectorize(integrand0),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
     output$generalized = min(pval.generalized,1)
   }
 
@@ -718,6 +779,9 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
 # p-value approximation for single change-point, sub functions
 
 pval1_sub_1 = function(n,b,r,x,lower,upper){
+  if (b<0){
+    return(1)
+  }
   theta_b = rep(0,n-1)
   pos = which(1+2*r*b>0)
   theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
@@ -764,6 +828,9 @@ pval1_sub_1 = function(n,b,r,x,lower,upper){
 }
 
 pval1_sub_2 = function(n,b,r,x,lower,upper){
+  if (b<0){
+    return(1)
+  }
   theta_b = rep(0,n-1)
   pos = which(1+2*r*b>0)
   theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
@@ -805,54 +872,70 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
   if (skew.corr==FALSE){
     if (length(which(!is.na(match(c("o","ori","original","all"), statistics))))>0){
       b = scanZ$ori$Zmax
-      integrand = function(s){
-        x = rho_one(n,s,sumE,sumEisq)
-        (b^2*x*Nu(sqrt(2*b^2*x)))^2*(n-s)
+      if (b>0){
+        integrand = function(s){
+          x = rho_one(n,s,sumE,sumEisq)
+          (b^2*x*Nu(sqrt(2*b^2*x)))^2*(n-s)
+        }
+        pval.ori = dnorm(b)/b*integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
+      }else{
+        pval.ori = 1
       }
-      pval.ori = dnorm(b)/b*integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
       output$ori = min(pval.ori,1)
     }
-    if (length(which(!is.na(match(c("w","weighted","m","max","g","generalized","all"),statistics))))>0){
-      if(l0<=1){
-        l0 = 2
-      }
-      if(l1>=(n-1)){
-        l1=n-2
-      }
-    }
+    # if (length(which(!is.na(match(c("w","weighted","m","max","g","generalized","all"),statistics))))>0){
+      # if(l0<=1){
+        # l0 = 2
+      # }
+      # if(l1>=(n-1)){
+        # l1=n-2
+      # }
+    # }
     if (length(which(!is.na(match(c("w","weighted","all"), statistics))))>0){
       b = scanZ$weighted$Zmax
-      integrandW = function(t){
-        x = rho_one_Rw(n,t)
-        (b^2*x*Nu(sqrt(2*b^2*x)))^2*(n-t)
+      if (b>0){
+        integrandW = function(t){
+          x = rho_one_Rw(n,t)
+          (b^2*x*Nu(sqrt(2*b^2*x)))^2*(n-t)
+        }
+        pval.weighted = try(dnorm(b)/b*integrate(integrandW, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
+      }else{
+        pval.weighted = 1
       }
-      pval.weighted = try(dnorm(b)/b*integrate(integrandW, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
       output$weighted = min(pval.weighted,1)
     }
     if (length(which(!is.na(match(c("m","max","all"), statistics))))>0){
       b = scanZ$max.type$Zmax
-      integrand1 = function(t){
-        x1 = n/(2*t*(n - t))
-        (b^2*x1*Nu(sqrt(2*b^2*x1)))^2*(n-t)
+      if (b>0){
+        integrand1 = function(t){
+          x1 = n/(2*t*(n - t))
+          (b^2*x1*Nu(sqrt(2*b^2*x1)))^2*(n-t)
+        }
+        integrand2 = function(t){
+          x2 = rho_one_Rw(n,t)
+          (b^2*x2*Nu(sqrt(2*b^2*x2)))^2*(n-t)
+        }
+        pval_u1 = try(2*dnorm(b)/b*integrate(integrand1, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value,silent=T)
+        pval_u2 = try(dnorm(b)/b*integrate(integrand2, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value,silent=T)
+        pval.max.type = as.numeric(1-(1-min(pval_u1,1))*(1-min(pval_u2,1)))
+      }else{
+        pval.max.type = 1
       }
-      integrand2 = function(t){
-        x2 = rho_one_Rw(n,t)
-        (b^2*x2*Nu(sqrt(2*b^2*x2)))^2*(n-t)
-      }
-      pval_u1 = try(2*dnorm(b)/b*integrate(integrand1, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value,silent=T)
-      pval_u2 = try(dnorm(b)/b*integrate(integrand2, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value,silent=T)
-      pval.max.type = as.numeric(1-(1-min(pval_u1,1))*(1-min(pval_u2,1)))
       output$max.type = pval.max.type
     }
     if (length(which(!is.na(match(c("g","generalized","all"), statistics))))>0){
       b = scanZ$generalized$Zmax
-      integrandG = function(t,w){
-        x1 = n/(2*t*(n - t))
-        x2 = rho_one_Rw(n,t)
-        (n-t)*(2*(x1*cos(w)^2+x2*sin(w)^2) *b*Nu(sqrt(2*b*(x1*cos(w)^2+x2*sin(w)^2))))^2/(2*pi)
+      if (b>0){
+        integrandG = function(t,w){
+          x1 = n/(2*t*(n - t))
+          x2 = rho_one_Rw(n,t)
+          (n-t)*(2*(x1*cos(w)^2+x2*sin(w)^2) *b*Nu(sqrt(2*b*(x1*cos(w)^2+x2*sin(w)^2))))^2/(2*pi)
+        }
+        integrand0 = function(t) {integrate(integrandG,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
+        pval.generalized = dchisq(b,2)*integrate(Vectorize(integrand0), l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
+      }else{
+        pval.generazlied = 1
       }
-      integrand0 = function(t) {integrate(integrandG,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
-      pval.generalized = dchisq(b,2)*integrate(Vectorize(integrand0), l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
       output$generalized = min(pval.generalized,1)
     }
     return(output)
@@ -874,54 +957,26 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
 
   if (length(which(!is.na(match(c("o","ori","original","all"), statistics))))>0){
     b = scanZ$ori$Zmax
-
-    s = 1:n
-    x = rho_one(n,s,sumE,sumEisq)
-    p1 = 2*s*(n-s)/(n*(n-1))
-    p2 = 4*s*(s-1)*(n-s)*(n-s-1)/(n*(n-1)*(n-2)*(n-3))
-    p3 = s*(n-s)*((n-s-1)*(n-s-2) + (s-1)*(s-2))/(n*(n-1)*(n-2)*(n-3))
-    p4 = 8*s*(s-1)*(s-2)*(n-s)*(n-s-1)*(n-s-2)/(n*(n-1)*(n-2)*(n-3)*(n-4)*(n-5))
-    mu = p1*sumE
-    sig = sqrt(p2*sumE + (p1/2-p2)*sumEisq + (p2-p1^2)*sumE^2)  # sigma
-    ER3 = p1*sumE + p1/2*3*x1 + p2*(3*sumE*(sumE-1)-3*x1) + p3*x2 + p2/2*(3*x4-6*x3) + p4*(sumE*(sumE-1)*(sumE-2)-x2-3*x4+6*x3) - 2*p4*x5
-    r = (mu^3 + 3*mu*sig^2 - ER3)/sig^3
-    theta_b = rep(0,n)
-    pos = which(1+2*r*b>0)
-    theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
-    ratio = exp((b-theta_b)^2/2 + r*theta_b^3/6)/sqrt(1+r*theta_b)
-    a = (b^2*x*Nu(sqrt(2*b^2*x)))^2 * ratio
-    nn = n-length(pos)
-    if (nn>0.75*n){
-      #output$ori = 0
-      cat("Extrapolation for skewness-corrected p-value approximation could not be performed. \n")
-      cat("Original edge-count statistic: p-value approximation without skewness correction is reported.\n")
-      b = scanZ$ori$Zmax
-      integrand = function(s){
-        x = rho_one(n,s,sumE,sumEisq)
-        (b^2*x*Nu(sqrt(2*b^2*x)))^2*(n-s)
-      }
-      pval.ori = dnorm(b)/b*integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
-      output$ori = min(pval.ori,1)
-    } else {
-      if (nn>=2*l0-1){
-        neg = which(1+2*r*b<=0)
-        dif = neg[2:nn]-neg[1:(nn-1)]
-        id1 = which.max(dif)
-        id2 = id1 + ceiling(0.03*n)
-        id3 = id2 + ceiling(0.09*n)
-        inc = (a[id3]-a[id2])/(id3-id2)
-        a[id2:1] = a[id2+1]-inc*(1:id2)
-        a[(n/2+1):n] = a[(n/2):1]
-        neg2 = which(a<0)
-        a[neg2] = 0
-      }
-      integrand = function(s){
-        a[s]*(n-s)
-      }
-      result = try(dnorm(b)/b*integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
-      if (is.numeric(result)){
-        output$ori = min(result,1)
-      }else{
+    if (b>0){
+      s = 1:n
+      x = rho_one(n,s,sumE,sumEisq)
+      p1 = 2*s*(n-s)/(n*(n-1))
+      p2 = 4*s*(s-1)*(n-s)*(n-s-1)/(n*(n-1)*(n-2)*(n-3))
+      p3 = s*(n-s)*((n-s-1)*(n-s-2) + (s-1)*(s-2))/(n*(n-1)*(n-2)*(n-3))
+      p4 = 8*s*(s-1)*(s-2)*(n-s)*(n-s-1)*(n-s-2)/(n*(n-1)*(n-2)*(n-3)*(n-4)*(n-5))
+      mu = p1*sumE
+      sig = sqrt(p2*sumE + (p1/2-p2)*sumEisq + (p2-p1^2)*sumE^2)  # sigma
+      ER3 = p1*sumE + p1/2*3*x1 + p2*(3*sumE*(sumE-1)-3*x1) + p3*x2 + p2/2*(3*x4-6*x3) + p4*(sumE*(sumE-1)*(sumE-2)-x2-3*x4+6*x3) - 2*p4*x5
+      r = (mu^3 + 3*mu*sig^2 - ER3)/sig^3
+      theta_b = rep(0,n)
+      pos = which(1+2*r*b>0)
+      theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
+      ratio = exp((b-theta_b)^2/2 + r*theta_b^3/6)/sqrt(1+r*theta_b)
+      a = (b^2*x*Nu(sqrt(2*b^2*x)))^2 * ratio
+      nn = n-length(pos)
+      if (nn>0.75*n){
+        #output$ori = 0
+        cat("Extrapolation for skewness-corrected p-value approximation could not be performed. \n")
         cat("Original edge-count statistic: p-value approximation without skewness correction is reported.\n")
         b = scanZ$ori$Zmax
         integrand = function(s){
@@ -930,7 +985,38 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
         }
         pval.ori = dnorm(b)/b*integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
         output$ori = min(pval.ori,1)
+      } else {
+        if (nn>=2*l0-1){
+          neg = which(1+2*r*b<=0)
+          dif = neg[2:nn]-neg[1:(nn-1)]
+          id1 = which.max(dif)
+          id2 = id1 + ceiling(0.03*n)
+          id3 = id2 + ceiling(0.09*n)
+          inc = (a[id3]-a[id2])/(id3-id2)
+          a[id2:1] = a[id2+1]-inc*(1:id2)
+          a[(n/2+1):n] = a[(n/2):1]
+          neg2 = which(a<0)
+          a[neg2] = 0
+        }
+        integrand = function(s){
+          a[s]*(n-s)
+        }
+        result = try(dnorm(b)/b*integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
+        if (is.numeric(result)){
+          output$ori = min(result,1)
+        }else{
+          cat("Original edge-count statistic: p-value approximation without skewness correction is reported.\n")
+          b = scanZ$ori$Zmax
+          integrand = function(s){
+            x = rho_one(n,s,sumE,sumEisq)
+            (b^2*x*Nu(sqrt(2*b^2*x)))^2*(n-s)
+          }
+          pval.ori = dnorm(b)/b*integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
+          output$ori = min(pval.ori,1)
+        }
       }
+    }else{
+      output$ori = 1
     }
   }
 
@@ -969,12 +1055,12 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
     r =  (ER3- 3*mu*sig^2 - mu^3)/sig^3
    
     b = scanZ$weighted$Zmax
-    if(l0<=1){
-      l0 = 2
-    }
-    if(l1>=(n-1)){
-      l1=n-2
-    }
+    # if(l0<=1){
+      # l0 = 2
+    # }
+    # if(l1>=(n-1)){
+      # l1=n-2
+    # }
     
     result.u2 = pval2_sub_2(n,b,r,x,l0,l1)
     r.Rw = r
@@ -989,11 +1075,15 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
         }
         cat("Weighted edge-count statistic: p-value approximation without skewness correction is reported.\n")
         b = scanZ$weighted$Zmax
-        integrandW = function(t){
-          x = rho_one_Rw(n,t)
-          (b^2*x*Nu(sqrt(2*b^2*x)))^2*(n-t)
+        if (b>0){
+          integrandW = function(t){
+            x = rho_one_Rw(n,t)
+            (b^2*x*Nu(sqrt(2*b^2*x)))^2*(n-t)
+          }
+          pval.weighted = try(dnorm(b)/b*integrate(integrandW, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
+        }else{
+          pval.weighted = 1
         }
-        pval.weighted = try(dnorm(b)/b*integrate(integrandW, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
         output$weighted = min(pval.weighted,1)
       }
     }
@@ -1026,17 +1116,21 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
         }
         cat("Max-type edge-count statistic: p-value approximation without skewness correction is reported.\n")
         b = scanZ$max.type$Zmax
-        integrand1 = function(t){
-          x1 = n/(2*t*(n - t))
-          (b^2*x1*Nu(sqrt(2*b^2*x1)))^2*(n-t)
+        if (b>0){
+          integrand1 = function(t){
+            x1 = n/(2*t*(n - t))
+            (b^2*x1*Nu(sqrt(2*b^2*x1)))^2*(n-t)
+          }
+          integrand2 = function(t){
+            x2 = rho_one_Rw(n,t)
+            (b^2*x2*Nu(sqrt(2*b^2*x2)))^2*(n-t)
+          }
+          pval_u1 = try(2*dnorm(b)/b*integrate(integrand1, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value,silent=T)
+          pval_u2 = try(dnorm(b)/b*integrate(integrand2, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value,silent=T)
+          pval.max.type = as.numeric(1-(1-min(pval_u1,1))*(1-min(pval_u2,1)))
+        }else{
+          pval.max.type = 1
         }
-        integrand2 = function(t){
-          x2 = rho_one_Rw(n,t)
-          (b^2*x2*Nu(sqrt(2*b^2*x2)))^2*(n-t)
-        }
-        pval_u1 = try(2*dnorm(b)/b*integrate(integrand1, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value,silent=T)
-        pval_u2 = try(dnorm(b)/b*integrate(integrand2, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value,silent=T)
-        pval.max.type = as.numeric(1-(1-min(pval_u1,1))*(1-min(pval_u2,1)))
         output$max.type = pval.max.type
       }else{
         output$max.type = 1-(1-min(result.u1,1))*(1-min(result.u2,1))
@@ -1047,13 +1141,17 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
   # for generalized edge-count test, the approximated p-value without skewness correction is reported
   if (length(which(!is.na(match(c("g","generalized","all"), statistics))))>0){
     b = scanZ$generalized$Zmax
-    integrandG = function(t,w){
-      x1 = n/(2*t*(n - t))
-      x2 = rho_one_Rw(n,t)
-      (n-t)*(2*(x1*cos(w)^2+x2*sin(w)^2) *b*Nu(sqrt(2*b*(x1*cos(w)^2+x2*sin(w)^2))))^2/(2*pi)
+    if (b>0){
+      integrandG = function(t,w){
+        x1 = n/(2*t*(n - t))
+        x2 = rho_one_Rw(n,t)
+        (n-t)*(2*(x1*cos(w)^2+x2*sin(w)^2) *b*Nu(sqrt(2*b*(x1*cos(w)^2+x2*sin(w)^2))))^2/(2*pi)
+      }
+      integrand0 = function(t) {integrate(integrandG,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
+      pval.generalized = dchisq(b,2)*integrate(Vectorize(integrand0), l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
+    }else{
+      pval.generazlied = 1
     }
-    integrand0 = function(t) {integrate(integrandG,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
-    pval.generalized = dchisq(b,2)*integrate(Vectorize(integrand0), l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
     output$generalized = min(pval.generalized,1)
   }
 
@@ -1063,6 +1161,9 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
 
 # p-value approximation for changed interval, sub functions
 pval2_sub_1 = function(n,b,r,x,l0,l1){
+  if (b<0){
+    return(1)
+  }
   theta_b = rep(0,n-1)
   pos = which(1+2*r*b>0)
   theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
@@ -1110,6 +1211,9 @@ pval2_sub_1 = function(n,b,r,x,l0,l1){
 
 
 pval2_sub_2 = function(n,b,r,x,l0,l1){
+  if (b<0){
+    return(1)
+  }
   theta_b = rep(0,n-1)
   pos = which(1+2*r*b>0)
   theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
@@ -1178,18 +1282,22 @@ permpval1 = function(n, Ebynode, scanZ, statistics="all", B=100, n0=ceiling(0.05
   p=1-(0:(B-1))/B
 
   if (length(which(!is.na(match(c("o","ori","original","all"), statistics))))>0){
+  	# if((n0<=1 & n1>=(n-2)) | (n0<=2 & n1>=(n-1))){
+      # n0 = 2
+      # n1 = n-2
+    # }
     maxZ = apply(Z.ori[,n0:n1],1,max)
     maxZs = sort(maxZ)
     output$ori = list(pval=length(which(maxZs>=scanZ$ori$Zmax))/B, curve=cbind(maxZs,p), maxZs=maxZs, Z=Z.ori)
   }
   
 
-  if (length(which(!is.na(match(c("w","weighted","m","max","g","generalized","all"),statistics))))>0){
-    if((n0<=1 & n1>=(n-2)) | (n0<=2 & n1>=(n-1))){
-      n0 = 2
-      n1 = n-2
-    }
-  }
+  # if (length(which(!is.na(match(c("w","weighted","m","max","g","generalized","all"),statistics))))>0){
+    # if((n0<=1 & n1>=(n-2)) | (n0<=2 & n1>=(n-1))){
+      # n0 = 2
+      # n1 = n-2
+    # }
+  # }
   if (length(which(!is.na(match(c("w","weighted","all"), statistics))))>0){
     
     maxZ = apply(Z.weighted[,n0:n1],1,max)
@@ -1250,14 +1358,14 @@ permpval2 = function(n,Ebynode,scanZ,statistics="all", B=100,l0=ceiling(0.05*n),
     maxZs = sort(maxZ)
     output$ori = list(pval=length(which(maxZs>=scanZ$ori$Zmax))/B, curve=cbind(maxZs,p), maxZs=maxZs, Zmax=Zmax.ori)
   }
-  if (length(which(!is.na(match(c("w","weighted","m","max","g","generalized","all"),statistics))))>0){
-    if(l0<=1){
-      l0 = 2
-    }
-    if(l1>=(n-1)){
-      l1=n-2
-    }
-  }
+  # if (length(which(!is.na(match(c("w","weighted","m","max","g","generalized","all"),statistics))))>0){
+    # if(l0<=1){
+      # l0 = 2
+    # }
+    # if(l1>=(n-1)){
+      # l1=n-2
+    # }
+  # }
   if (length(which(!is.na(match(c("w","weighted","all"), statistics))))>0){
     maxZ = max(Zmax.weighted)
     maxZs = sort(maxZ)
