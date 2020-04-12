@@ -292,7 +292,7 @@ gcp1bynode = function(n, Ebynode, statistics="all", n0=ceiling(0.05*n), n1=floor
     var.Rw=((n-tt-1)/(n-2))^2*v11 + 2*((n-tt-1)/(n-2))*((tt-1)/(n-2))*v12+((tt-1)/(n-2))^2*v22
     Zw = -(mu.Rw-Rw)/sqrt(apply(cbind(var.Rw,rep(0,n)),1,max))
     
-    if (length(which(!is.na(match(c("w","weighted","all"),statistics))))>0){
+    if (length(which(!is.na(match(c("w","weighted","m","all"),statistics))))>0){
       tauhat = temp[which.max(Zw[n0:n1])]
       weighted = list(tauhat=tauhat, Zmax=Zw[tauhat], Zw=Zw, Rw=Rw)
       scanZ$weighted = weighted
@@ -415,7 +415,7 @@ gcp2bynode = function(n, Ebynode, statistics="all", l0=ceiling(0.05*n), l1=floor
     Zv2 = rep(0,n*n)
     Zv2[ids] = -(muRw.tt[difv[ids]]-Rw_v[ids])/sqrt(sigRw[difv[ids]])
 
-    if (length(which(!is.na(match(c("w","weighted","all"), statistics))))>0){
+    if (length(which(!is.na(match(c("w","weighted","m","all"), statistics))))>0){
       Zmax = max(Zv2[ids2])
       tauhat0 = which(Zv2 == Zmax)
       tauhat = c(floor(tauhat0/n)+1, (tauhat0-1)%%n+1)
