@@ -47,9 +47,7 @@ Returns a list \code{scanZ} with \code{tauhat}, \code{Zmax}, and a matrix of the
   \item{perm.Z}{A B by n-squared matrix with each row being the vectorized scan statistics from each permutaiton run.}
 }
 \seealso{
-  \code{\link{gSeg}}
-
-  \code{\link{gseg1}}
+  \code{\link{gSeg}}, \code{\link{gseg1}}, \code{\link{gseg2_discrete}}
 }
 \examples{
 data(Example)

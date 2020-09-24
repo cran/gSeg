@@ -1,2 +1,2 @@
-export(gseg1, gseg2)
+export(gseg1, gseg2, gseg1_discrete, gseg2_discrete, nnl)
 importFrom("stats", "dnorm", "integrate", "pnorm", "dchisq")

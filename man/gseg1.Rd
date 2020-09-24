@@ -46,9 +46,7 @@ gseg1(n, E, statistics=c("all","o","w","g","m"), n0=0.05*n, n1=0.95*n, pval.appr
   \item{perm.Z}{A B by n matrix with each row being the scan statistics from each permutaiton run.}
 }
 \seealso{
-  \code{\link{gSeg}}
-
-  \code{\link{gseg2}}
+  \code{\link{gSeg}}, \code{\link{gseg2}}, \code{\link{gseg1_discrete}}
 }
 \examples{
 
