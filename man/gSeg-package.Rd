@@ -70,7 +70,7 @@ set.seed(500)
 y = rbind(matrix(rnorm(d*tau),tau), matrix(rnorm(d*(n-tau),mu/sqrt(d)), n-tau))
 y.dist = dist(y)
 E2 = mstree(y.dist)
-r2 = gseg1(n,E2,statistic="all")
+r2 = gseg1(n,E2,statistics="all")
 # image(as.matrix(y.dist))  
 
 
@@ -84,7 +84,7 @@ set.seed(500)
 y = rbind(matrix(rnorm(d*tau),tau), matrix(rnorm(d*(n-tau),mu/sqrt(d),sigma), n-tau))
 y.dist = dist(y)
 E3 = mstree(y.dist)
-r3=gseg1(n,E3,statistic="all")
+r3=gseg1(n,E3,statistics="all")
 # image(as.matrix(y.dist)) 
 
 
@@ -98,7 +98,7 @@ set.seed(500)
 y = rbind(matrix(rnorm(d*tau),tau), matrix(rnorm(d*(n-tau),mu/sqrt(d),sigma), n-tau))
 y.dist = dist(y)
 E4 = mstree(y.dist)
-r4=gseg1(n,E4,statistic="all")
+r4=gseg1(n,E4,statistics="all")
 # image(as.matrix(y.dist))  
 
 
@@ -142,4 +142,3 @@ r6 = gseg1_discrete(n, E6, id, statistics="all")
 # image(as.matrix(y.dist))  
 
 }
-

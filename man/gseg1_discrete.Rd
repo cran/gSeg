@@ -3,14 +3,14 @@
 \title{Graph-Based Change-Point Detection for Single Change-Point for Data with Repeated Observations}
 \description{This function finds a break point in the sequence where the underlying distribution changes when data has repeated observations. It provides four graph-based test statistics.}
 \usage{
-gseg1_discrete(n, E, id, statistics=c("all","o","w","g","m"), n0=0.05*n, n1=0.95*n, 
+gseg1_discrete(n, E, id, statistics="m", n0=0.05*n, n1=0.95*n, 
    pval.appr=TRUE, skew.corr=TRUE, pval.perm=FALSE, B=100)
 }
 \arguments{
-  \item{n}{The number of observations in the sequence.}
+  \item{n}{The number of observations in the sequence; it must be at least 6.}
   \item{E}{The edge matrix (a "number of edges" by 2 matrix) for the similarity graph. Each row contains the node indices of an edge.}
   \item{id}{The index of observations (order of observations).}
-  \item{statistics}{The scan statistic to be computed. A character indicating the type of of scan statistic desired. The default is \code{"all"}.
+  \item{statistics}{The scan statistics to be computed. The default is \code{"m"}, which reports the max-type scan.
 
    \code{"all"}: specifies to compute \bold{a}ll of the scan statistics: original, weighted, generalized, and max-type;
 
@@ -24,7 +24,7 @@ gseg1_discrete(n, E, id, statistics=c("all","o","w","g","m"), n0=0.05*n, n1=0.95
    }
   \item{n0}{The starting index to be considered as a candidate for the change-point.}
   \item{n1}{The ending index to be considered as a candidate for the change-point.}
-  \item{pval.appr}{If it is TRUE, the function outputs p-value approximation based on asymptotic properties.}
+  \item{pval.appr}{If it is TRUE, the function outputs a p-value approximation based on asymptotic properties. The analytic approximation requires \code{n >= 9}.}
   \item{skew.corr}{This argument is useful only when pval.appr=TRUE.  If skew.corr is TRUE, the p-value approximation would incorporate skewness correction.}
   \item{pval.perm}{If it is TRUE, the function outputs p-value from doing B permutations, where B is another argument that you can specify. Doing permutation could be time consuming, so use this argument with caution as it may take a long time to finish the permutation.}
   \item{B}{This argument is useful only when pval.perm=TRUE.  The default value for B is 100.}
@@ -41,12 +41,12 @@ gseg1_discrete(n, E, id, statistics=c("all","o","w","g","m"), n0=0.05*n, n1=0.95
   \item{Zw_u}{A vector of the weighted scan statistics (standardized counts) for union approach if statistic specified is "all" or "w".}
   \item{S_a}{A vector of the generalized scan statistics (standardized counts) for averaging approach if statistic specified is "all" or "g".}
   \item{S_u}{A vector of the generalized scan statistics (standardized counts) for union approach if statistic specified is "all" or "g".}
-  \item{M_a}{A vector of the max-type scan statistics (standardized counts) for averaging appraoch if statistic specified is "all" or "m".}
-  \item{M_u}{A vector of the max-type scan statistics (standardized counts) for union appraoch if statistic specified is "all" or "m".}
+  \item{M_a}{A vector of the max-type scan statistics (standardized counts) for averaging approach if statistic specified is "all" or "m".}
+  \item{M_u}{A vector of the max-type scan statistics (standardized counts) for union approach if statistic specified is "all" or "m".}
   \item{Ro_a}{A vector of raw counts of the original scan statistic for averaging approach. This output only exists if the statistic specified is "all" or "o".}
   \item{Ro_u}{A vector of raw counts of the original scan statistic for union approach. This output only exists if the statistic specified is "all" or "o".}
-  \item{Rw_a}{A vector of raw counts of the weighted scan statistic for averaging appraoch. This output only exists if statistic specified is "all" or "w".}
-  \item{Rw_u}{A vector of raw counts of the weighted scan statistic for union appraoch. This output only exists if statistic specified is "all" or "w".}
+  \item{Rw_a}{A vector of raw counts of the weighted scan statistic for averaging approach. This output only exists if statistic specified is "all" or "w".}
+  \item{Rw_u}{A vector of raw counts of the weighted scan statistic for union approach. This output only exists if statistic specified is "all" or "w".}
   \item{pval.appr}{The approximated p-value based on asymptotic theory for each type of statistic specified.}
   \item{pval.perm}{This output exists only when the argument pval.perm is TRUE . It is the permutation p-value from B permutations and appears for each type of statistic specified (same for perm.curve, perm.maxZs, and perm.Z).}
   \item{perm.curve}{A B by 2 matrix with the first column being critical values corresponding to the p-values in the second column.}

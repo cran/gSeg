@@ -1,11 +1,54 @@
 ### main functions
 # single change-point
-gseg1_discrete = function(n, E, id, statistics=c("all","o","w","g","m"), n0=0.05*n, n1=0.95*n, pval.appr=TRUE, skew.corr=TRUE, pval.perm=FALSE, B=100) {
+gseg1_discrete = function(n, E, id, statistics="m", n0=0.05*n, n1=0.95*n, pval.appr=TRUE, skew.corr=TRUE, pval.perm=FALSE, B=100) {
+  if (!is.numeric(n) || length(n) != 1L || !is.finite(n) || n < 6L || n != as.integer(n)) {
+    stop("`n` must be an integer at least 6.")
+  }
+  if (!is.numeric(id) || length(id) != n || any(is.na(id)) || any(!is.finite(id)) ||
+      any(id != as.integer(id)) || any(id < 1L) ||
+      !setequal(unique(id), seq_len(max(id)))) {
+    stop("`id` must contain one positive integer category index per observation.")
+  }
+  E = as.matrix(E)
+  if (!is.numeric(E) || ncol(E) != 2L || nrow(E) < 1L || any(!is.finite(E)) ||
+      any(E != as.integer(E)) || any(E < 1L) || any(E > max(id)) || any(E[,1] == E[,2])) {
+    stop("`E` must be a nonempty two-column edge matrix with valid distinct endpoints.")
+  }
+  edge.keys = paste(pmin(E[,1], E[,2]), pmax(E[,1], E[,2]), sep = ":")
+  if (anyDuplicated(edge.keys)) stop("`E` must not contain duplicate undirected edges.")
+  valid.statistics = c("o","ori","original","w","weighted","g","generalized","m","max","all")
+  if (!is.character(statistics) || !length(statistics) || any(is.na(statistics)) ||
+      any(!statistics %in% valid.statistics)) {
+    stop("`statistics` contains an unrecognized scan statistic.")
+  }
+  if (isTRUE(pval.perm) &&
+      (!is.numeric(B) || length(B) != 1L || !is.finite(B) || B < 1L || B != as.integer(B))) {
+    stop("`B` must be a positive integer.")
+  }
+  if (!is.logical(pval.appr) || length(pval.appr) != 1L || is.na(pval.appr) ||
+      !is.logical(pval.perm) || length(pval.perm) != 1L || is.na(pval.perm) ||
+      !is.logical(skew.corr) || length(skew.corr) != 1L || is.na(skew.corr)) {
+    stop("`pval.appr`, `pval.perm`, and `skew.corr` must be TRUE or FALSE.")
+  }
+  if (pval.appr && n < 9L) {
+    stop("The analytic scan approximation requires `n >= 9`; set `pval.appr = FALSE` for smaller samples.")
+  }
+  if (!is.numeric(n0) || length(n0) != 1L || !is.finite(n0) ||
+      !is.numeric(n1) || length(n1) != 1L || !is.finite(n1)) {
+    stop("`n0` and `n1` must be finite numbers.")
+  }
   r1 = list()
   n0 = ceiling(n0)
   n1 = floor(n1)
+  if (n0 < 2L) n0 = 2L
+  if (n1 > n - 2L) n1 = n - 2L
+  if (n0 > n1) stop("The scan range defined by `n0` and `n1` is empty.")
   
   r1$scanZ = gcp1bynode_discrete(n, E, id, statistics, n0, n1)
+  scan.maxima = unlist(lapply(r1$scanZ, function(x) x[grepl("_max$", names(x))]), use.names = FALSE)
+  if (!length(scan.maxima) || any(!is.finite(scan.maxima))) {
+    stop("The requested scan statistic is degenerate for this graph; use a less dense similarity graph.")
+  }
   if (pval.appr==TRUE){
     mypval1_discrete = pval1_discrete(n, E, id, r1$scanZ, statistics, skew.corr, n0, n1)
     r1$pval.appr = mypval1_discrete
@@ -96,17 +139,63 @@ gseg1_discrete = function(n, E, id, statistics=c("all","o","w","g","m"), n0=0.05
     }
   }
   
+  if (!any(statistics %in% c("w", "weighted", "all"))) {
+    r1$scanZ$weighted <- NULL
+  }
   return(r1)
 }
 
 
 # Changed Interval
-gseg2_discrete = function(n, E, id, statistics=c("all","o","w","g","m"), l0=0.05*n, l1=0.95*n, pval.appr=TRUE, skew.corr=TRUE, pval.perm=FALSE, B=100) {
+gseg2_discrete = function(n, E, id, statistics="m", l0=0.05*n, l1=0.95*n, pval.appr=TRUE, skew.corr=TRUE, pval.perm=FALSE, B=100) {
+  if (!is.numeric(n) || length(n) != 1L || !is.finite(n) || n < 6L || n != as.integer(n)) {
+    stop("`n` must be an integer at least 6.")
+  }
+  if (!is.numeric(id) || length(id) != n || any(is.na(id)) || any(!is.finite(id)) ||
+      any(id != as.integer(id)) || any(id < 1L) ||
+      !setequal(unique(id), seq_len(max(id)))) {
+    stop("`id` must contain one positive integer category index per observation.")
+  }
+  E = as.matrix(E)
+  if (!is.numeric(E) || ncol(E) != 2L || nrow(E) < 1L || any(!is.finite(E)) ||
+      any(E != as.integer(E)) || any(E < 1L) || any(E > max(id)) || any(E[,1] == E[,2])) {
+    stop("`E` must be a nonempty two-column edge matrix with valid distinct endpoints.")
+  }
+  edge.keys = paste(pmin(E[,1], E[,2]), pmax(E[,1], E[,2]), sep = ":")
+  if (anyDuplicated(edge.keys)) stop("`E` must not contain duplicate undirected edges.")
+  valid.statistics = c("o","ori","original","w","weighted","g","generalized","m","max","all")
+  if (!is.character(statistics) || !length(statistics) || any(is.na(statistics)) ||
+      any(!statistics %in% valid.statistics)) {
+    stop("`statistics` contains an unrecognized scan statistic.")
+  }
+  if (isTRUE(pval.perm) &&
+      (!is.numeric(B) || length(B) != 1L || !is.finite(B) || B < 1L || B != as.integer(B))) {
+    stop("`B` must be a positive integer.")
+  }
+  if (!is.logical(pval.appr) || length(pval.appr) != 1L || is.na(pval.appr) ||
+      !is.logical(pval.perm) || length(pval.perm) != 1L || is.na(pval.perm) ||
+      !is.logical(skew.corr) || length(skew.corr) != 1L || is.na(skew.corr)) {
+    stop("`pval.appr`, `pval.perm`, and `skew.corr` must be TRUE or FALSE.")
+  }
+  if (pval.appr && n < 9L) {
+    stop("The analytic scan approximation requires `n >= 9`; set `pval.appr = FALSE` for smaller samples.")
+  }
+  if (!is.numeric(l0) || length(l0) != 1L || !is.finite(l0) ||
+      !is.numeric(l1) || length(l1) != 1L || !is.finite(l1)) {
+    stop("`l0` and `l1` must be finite numbers.")
+  }
   r1 = list()
   l0 = ceiling(l0)
   l1 = floor(l1)
+  if (l0 < 2L) l0 = 2L
+  if (l1 > n - 2L) l1 = n - 2L
+  if (l0 > l1) stop("The interval-length range defined by `l0` and `l1` is empty.")
   
   r1$scanZ = gcp2bynode_discrete(n, E, id, statistics, l0, l1)
+  scan.maxima = unlist(lapply(r1$scanZ, function(x) x[grepl("_max$", names(x))]), use.names = FALSE)
+  if (!length(scan.maxima) || any(!is.finite(scan.maxima))) {
+    stop("The requested scan statistic is degenerate for this graph; use a less dense similarity graph.")
+  }
   if (pval.appr==TRUE){
     mypval1_discrete = pval2_discrete(n, E, id, r1$scanZ, statistics, skew.corr, l0, l1)
     r1$pval.appr = mypval1_discrete
@@ -197,6 +286,9 @@ gseg2_discrete = function(n, E, id, statistics=c("all","o","w","g","m"), l0=0.05
     }
   }
   
+  if (!any(statistics %in% c("w", "weighted", "all"))) {
+    r1$scanZ$weighted <- NULL
+  }
   return(r1)
 }
 
@@ -576,7 +668,7 @@ gcp2bynode_discrete = function(n, E, id, statistics="all", l0=ceiling(0.05*n), l
       }
       
       if (length(which(!is.na(match(c("m","max","all"), statistics))))>0) {
-        for(i in 1:length(Zwv_a)){
+        for(i in seq_along(Zwv_a)){
           if(Zwv_a[i]=='NaN'){
             Zwv_a[i]=0
           }
@@ -586,7 +678,7 @@ gcp2bynode_discrete = function(n, E, id, statistics="all", l0=ceiling(0.05*n), l
         M_a_max = max(M_a[ids2])
         tauhat_a0 = which(M_a == M_a_max)
         tauhat_a = c(floor(tauhat_a0/n)+1, (tauhat_a0-1)%%n+1)
-        for(i in 1:length(Zwv_u)){
+        for(i in seq_along(Zwv_u)){
           if(Zwv_u[i]=='NaN'){
             Zwv_u[i]=0
           }
@@ -679,7 +771,7 @@ permpval1_discrete = function(n, E, id, scanZ, statistics="all", B=100, n0=ceili
   Z.ori_a=Z.ori_u=Z.weighted_a=Z.weighted_u=Z.max.type_a=Z.max.type_u = matrix(0,B,n)
   Z.generalized_a=Z.generalized_u = matrix(0,B,n)
   
-  for(b in 1:B) {
+  for(b in seq_len(B)) {
     if(b%%1000 ==0) {
       cat(b, "permutations completed.\n")
     }
@@ -705,7 +797,7 @@ permpval1_discrete = function(n, E, id, scanZ, statistics="all", B=100, n0=ceili
   }
   
   output = list()
-  p=1-(0:(B-1))/B
+  p=(rev(seq_len(B))+1)/(B+1)
   
   if (length(which(!is.na(match(c("w","weighted","m","max","g","generalized","all"),statistics))))>0){
     if((n0<=1 & n1>=(n-2)) | (n0<=2 & n1>=(n-1))){
@@ -718,36 +810,36 @@ permpval1_discrete = function(n, E, id, scanZ, statistics="all", B=100, n0=ceili
   # maxZs : B max(Z(t)) after calculation by B permutation
   # Z : B Z(t) (B x n matrix)
   if (length(which(!is.na(match(c("o","ori","original","all"), statistics))))>0){
-    maxZ_a = apply(Z.ori_a[,n0:n1],1,max)
+    maxZ_a = apply(Z.ori_a[,n0:n1, drop = FALSE],1,max)
     maxZs_a = sort(maxZ_a)
-    output$ori_a = list(pval=length(which(maxZs_a>=scanZ$ori$Zo_a_max))/B, curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Z.ori_a)
-    maxZ_u = apply(Z.ori_u[,n0:n1],1,max)
+    output$ori_a = list(pval=(1+sum(maxZs_a>=scanZ$ori$Zo_a_max))/(B+1), curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Z.ori_a)
+    maxZ_u = apply(Z.ori_u[,n0:n1, drop = FALSE],1,max)
     maxZs_u = sort(maxZ_u)
-    output$ori_u = list(pval=length(which(maxZs_u>=scanZ$ori$Zo_u_max))/B, curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Z.ori_u)
+    output$ori_u = list(pval=(1+sum(maxZs_u>=scanZ$ori$Zo_u_max))/(B+1), curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Z.ori_u)
   }
   if (length(which(!is.na(match(c("w","weighted","all"), statistics))))>0){
-    maxZ_a = apply(Z.weighted_a[,n0:n1],1,max)
+    maxZ_a = apply(Z.weighted_a[,n0:n1, drop = FALSE],1,max)
     maxZs_a = sort(maxZ_a)
-    output$weighted_a = list(pval=length(which(maxZs_a>=scanZ$weighted$Zw_a_max))/B, curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Z.weighted_a) 
-    maxZ_u = apply(Z.weighted_u[,n0:n1],1,max)
+    output$weighted_a = list(pval=(1+sum(maxZs_a>=scanZ$weighted$Zw_a_max))/(B+1), curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Z.weighted_a) 
+    maxZ_u = apply(Z.weighted_u[,n0:n1, drop = FALSE],1,max)
     maxZs_u = sort(maxZ_u)
-    output$weighted_u = list(pval=length(which(maxZs_u>=scanZ$weighted$Zw_u_max))/B, curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Z.weighted_u)
+    output$weighted_u = list(pval=(1+sum(maxZs_u>=scanZ$weighted$Zw_u_max))/(B+1), curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Z.weighted_u)
   }
   if (length(which(!is.na(match(c("m","max","all"), statistics))))>0){
-    maxZ_a = apply(Z.max.type_a[,n0:n1],1,max)
+    maxZ_a = apply(Z.max.type_a[,n0:n1, drop = FALSE],1,max)
     maxZs_a = sort(maxZ_a)
-    output$max.type_a = list(pval=length(which(maxZs_a>=scanZ$max.type$M_a_max))/B, curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Z.max.type_a)
-    maxZ_u = apply(Z.max.type_u[,n0:n1],1,max)
+    output$max.type_a = list(pval=(1+sum(maxZs_a>=scanZ$max.type$M_a_max))/(B+1), curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Z.max.type_a)
+    maxZ_u = apply(Z.max.type_u[,n0:n1, drop = FALSE],1,max)
     maxZs_u = sort(maxZ_u)
-    output$max.type_u = list(pval=length(which(maxZs_u>=scanZ$max.type$M_u_max))/B, curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Z.max.type_u)
+    output$max.type_u = list(pval=(1+sum(maxZs_u>=scanZ$max.type$M_u_max))/(B+1), curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Z.max.type_u)
   }
   if (length(which(!is.na(match(c("g","generalized","all"), statistics))))>0){
-    maxZ_a = apply(Z.generalized_a[,n0:n1],1,max)
+    maxZ_a = apply(Z.generalized_a[,n0:n1, drop = FALSE],1,max)
     maxZs_a = sort(maxZ_a)
-    output$generalized_a = list(pval=length(which(maxZs_a>=scanZ$generalized$S_a_max))/B, curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Z.generalized_a)
-    maxZ_u = apply(Z.generalized_u[,n0:n1],1,max)
+    output$generalized_a = list(pval=(1+sum(maxZs_a>=scanZ$generalized$S_a_max))/(B+1), curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Z.generalized_a)
+    maxZ_u = apply(Z.generalized_u[,n0:n1, drop = FALSE],1,max)
     maxZs_u = sort(maxZ_u)
-    output$generalized_u = list(pval=length(which(maxZs_u>=scanZ$generalized$S_u_max))/B, curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Z.generalized_u)
+    output$generalized_u = list(pval=(1+sum(maxZs_u>=scanZ$generalized$S_u_max))/(B+1), curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Z.generalized_u)
   }
   
   return(output)
@@ -757,10 +849,10 @@ permpval1_discrete = function(n, E, id, scanZ, statistics="all", B=100, n0=ceili
 # p value from permutation for changed interval (permutation p-value)
 permpval2_discrete = function(n, E, id, scanZ, statistics="all", B=100, l0=ceiling(0.05*n), l1=floor(0.95*n)) {
   # Computes the pvalue P(max_{n1<=t<=n2}Z(t) > b) by permuting the nodes(obs) in the graph.
-  Zmax.ori_a=Zmax.ori_u=Zmax.weighted_a=Zmax.weighted_u=Zmax.max.type_a=Zmax.max.type_u = rep(0,n)
-  Zmax.generalized_a=Zmax.generalized_u = rep(0,n)
+  Zmax.ori_a=Zmax.ori_u=Zmax.weighted_a=Zmax.weighted_u=Zmax.max.type_a=Zmax.max.type_u = rep(0,B)
+  Zmax.generalized_a=Zmax.generalized_u = rep(0,B)
   
-  for(b in 1:B) {
+  for(b in seq_len(B)) {
     if(b%%1000 ==0) {
       cat(b, "permutations completed.\n")
     }
@@ -786,7 +878,7 @@ permpval2_discrete = function(n, E, id, scanZ, statistics="all", B=100, l0=ceili
   }
   
   output = list()
-  p=1-(0:(B-1))/B
+  p=(rev(seq_len(B))+1)/(B+1)
   
   # pval : permutation p-value, curve : distribution of B max(Z(t))
   # maxZs : B max(Z(t)) after calculation by B permutation
@@ -794,10 +886,10 @@ permpval2_discrete = function(n, E, id, scanZ, statistics="all", B=100, l0=ceili
   if (length(which(!is.na(match(c("o","ori","original","all"), statistics))))>0){
     maxZ_a = Zmax.ori_a
     maxZs_a = sort(maxZ_a)
-    output$ori_a = list(pval=length(which(maxZs_a>=scanZ$ori$Zo_a_max))/B, curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Zmax.ori_a)
+    output$ori_a = list(pval=(1+sum(maxZs_a>=scanZ$ori$Zo_a_max))/(B+1), curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Zmax.ori_a)
     maxZ_u = Zmax.ori_u
     maxZs_u = sort(maxZ_u)
-    output$ori_u = list(pval=length(which(maxZs_u>=scanZ$ori$Zo_u_max))/B, curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Zmax.ori_u)
+    output$ori_u = list(pval=(1+sum(maxZs_u>=scanZ$ori$Zo_u_max))/(B+1), curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Zmax.ori_u)
   }
   if (length(which(!is.na(match(c("w","weighted","m","max","g","generalized","all"),statistics))))>0){
     if(l0<=1){
@@ -810,26 +902,26 @@ permpval2_discrete = function(n, E, id, scanZ, statistics="all", B=100, l0=ceili
   if (length(which(!is.na(match(c("w","weighted","all"), statistics))))>0){
     maxZ_a = Zmax.weighted_a
     maxZs_a = sort(maxZ_a)
-    output$weighted_a = list(pval=length(which(maxZs_a>=scanZ$weighted$Zw_a_max))/B, curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Zmax.weighted_a) 
+    output$weighted_a = list(pval=(1+sum(maxZs_a>=scanZ$weighted$Zw_a_max))/(B+1), curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Zmax.weighted_a) 
     maxZ_u = Zmax.weighted_u
     maxZs_u = sort(maxZ_u)
-    output$weighted_u = list(pval=length(which(maxZs_u>=scanZ$weighted$Zw_u_max))/B, curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Zmax.weighted_u)
+    output$weighted_u = list(pval=(1+sum(maxZs_u>=scanZ$weighted$Zw_u_max))/(B+1), curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Zmax.weighted_u)
   }
   if (length(which(!is.na(match(c("m","max","all"), statistics))))>0){
     maxZ_a = Zmax.max.type_a
     maxZs_a = sort(maxZ_a)
-    output$max.type_a = list(pval=length(which(maxZs_a>=scanZ$max.type$M_a_max))/B, curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Zmax.max.type_a)
+    output$max.type_a = list(pval=(1+sum(maxZs_a>=scanZ$max.type$M_a_max))/(B+1), curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Zmax.max.type_a)
     maxZ_u = Zmax.max.type_u
     maxZs_u = sort(maxZ_u)
-    output$max.type_u = list(pval=length(which(maxZs_u>=scanZ$max.type$M_u_max))/B, curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Zmax.max.type_u)
+    output$max.type_u = list(pval=(1+sum(maxZs_u>=scanZ$max.type$M_u_max))/(B+1), curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Zmax.max.type_u)
   }
   if (length(which(!is.na(match(c("g","generalized","all"), statistics))))>0){
     maxZ_a = Zmax.generalized_a
     maxZs_a = sort(maxZ_a)
-    output$generalized_a = list(pval=length(which(maxZs_a>=scanZ$generalized$S_a_max))/B, curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Zmax.generalized_a)
+    output$generalized_a = list(pval=(1+sum(maxZs_a>=scanZ$generalized$S_a_max))/(B+1), curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Zmax.generalized_a)
     maxZ_u = Zmax.generalized_u
     maxZs_u = sort(maxZ_u)
-    output$generalized_u = list(pval=length(which(maxZs_u>=scanZ$generalized$S_u_max))/B, curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Zmax.generalized_u)
+    output$generalized_u = list(pval=(1+sum(maxZs_u>=scanZ$generalized$S_u_max))/(B+1), curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Zmax.generalized_u)
   }
   
   return(output)
@@ -1043,25 +1135,25 @@ pval1_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
       ER3o_u = G^3-3*G^2*muo_u+3*G*(varo_u+muo_u^2) - ER3_u
       
       ro_a = (-ER3o_a + 3*muo_a*varo_a + muo_a^3)/(varo_a^(3/2)) # E(Zo_a^3)
-      for(i in 1:length(ro_a)){
+      for(i in seq_along(ro_a)){
         if (is.na(ro_a[i])==TRUE){
           ro_a[i]=0
         }
       }
       ro_u = (-ER3o_u + 3*muo_u*varo_u + muo_u^3)/(varo_u^(3/2)) # E(Zo_u^3)
-      for(i in 1:length(ro_u)){
+      for(i in seq_along(ro_u)){
         if (is.na(ro_u[i])==TRUE){
           ro_u[i]=0
         }
       }
       c1_o_a = rho_one_discrete(n, t, one_a, two_a, three_a)
-      for(i in 1:length(c1_o_a)){
+      for(i in seq_along(c1_o_a)){
         if ((abs(c1_o_a[i]))=="Inf"){
           c1_o_a[i]=0
         }
       }
       c1_o_u = rho_one_discrete(n, t, one_u, two_u, three_u)
-      for(i in 1:length(c1_o_u)){
+      for(i in seq_along(c1_o_u)){
         if ((abs(c1_o_u[i]))=="Inf"){
           c1_o_u[i]=0
         }
@@ -1107,19 +1199,19 @@ pval1_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
     
     if (length(which(!is.na(match(c("w","weighted","m","max","all"), statistics))))>0) {
       rw_a =  (ER3w_a- 3*muw_a*varw_a - muw_a^3)/(varw_a^(3/2)) # E(Zw_a^3)
-      for(i in 1:length(rw_a)){
+      for(i in seq_along(rw_a)){
         if (is.na(rw_a[i])==TRUE){
           rw_a[i]=0
         }
       }
       rw_u =  (ER3w_u- 3*muw_u*varw_u - muw_u^3)/(varw_u^(3/2)) # E(Zw_u^3)
-      for(i in 1:length(rw_u)){
+      for(i in seq_along(rw_u)){
         if (is.na(rw_u[i])==TRUE){
           rw_u[i]=0
         }
       }
       c1_w = rho_w(n, t)
-      for(i in 1:length(c1_w)){
+      for(i in seq_along(c1_w)){
         if ((abs(c1_w[i]))=="Inf"){
           c1_w[i]=0
         }
@@ -1174,13 +1266,13 @@ pval1_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
       # max-type case
       if (length(which(!is.na(match(c("m","max","all"), statistics))))>0){
         c1_d = rho_d(n, t)
-        for(i in 1:length(c1_d)){
+        for(i in seq_along(c1_d)){
           if ((abs(c1_d[i]))=="Inf"){
             c1_d[i]=0
           }
         }
         rd_a =  (ER3d_a - 3*mud_a*vard_a - mud_a^3)/(vard_a^(3/2))
-        for(i in 1:length(rd_a)){
+        for(i in seq_along(rd_a)){
           if (is.na(rd_a[i])==TRUE){
             rd_a[i]=0
           }
@@ -1188,7 +1280,7 @@ pval1_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
         if (rd_a[n/2]==0) {rd_a[n/2]=rd_a[n/2+1]}
         
         rd_u =  (ER3d_u - 3*mud_u*vard_u - mud_u^3)/(vard_u^(3/2))
-        for(i in 1:length(rd_u)){
+        for(i in seq_along(rd_u)){
           if (is.na(rd_u[i])==TRUE){
             rd_u[i]=0
           }
@@ -1452,7 +1544,7 @@ pval1_discrete_sub_1 = function(n,b,r,x,lower,upper){
   theta_b = rep(0,n)
   pos = which(1+2*r*b>0)
   theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
-  for(i in 1:length(theta_b[pos])){       
+  for(i in seq_along(theta_b[pos])){       
     if (is.na(theta_b[pos][i])==TRUE){
       theta_b[pos][i]=0
     }
@@ -1711,25 +1803,25 @@ pval2_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
       ER3o_u = G^3-3*G^2*muo_u+3*G*(varo_u+muo_u^2) - ER3_u
       
       ro_a = (-ER3o_a + 3*muo_a*varo_a + muo_a^3)/(varo_a^(3/2)) # E(Zo_a^3)
-      for(i in 1:length(ro_a)){
+      for(i in seq_along(ro_a)){
         if (is.na(ro_a[i])==TRUE){
           ro_a[i]=0
         }
       }
       ro_u = (-ER3o_u + 3*muo_u*varo_u + muo_u^3)/(varo_u^(3/2)) # E(Zo_u^3)
-      for(i in 1:length(ro_u)){
+      for(i in seq_along(ro_u)){
         if (is.na(ro_u[i])==TRUE){
           ro_u[i]=0
         }
       }
       c1_o_a = rho_one_discrete(n, t, one_a, two_a, three_a)
-      for(i in 1:length(c1_o_a)){
+      for(i in seq_along(c1_o_a)){
         if ((abs(c1_o_a[i]))=="Inf"){
           c1_o_a[i]=0
         }
       }
       c1_o_u = rho_one_discrete(n, t, one_u, two_u, three_u)
-      for(i in 1:length(c1_o_u)){
+      for(i in seq_along(c1_o_u)){
         if ((abs(c1_o_u[i]))=="Inf"){
           c1_o_u[i]=0
         }
@@ -1776,20 +1868,20 @@ pval2_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
     if (length(which(!is.na(match(c("w","weighted","m","max","all"), statistics))))>0) {
       
       rw_a =  (ER3w_a- 3*muw_a*varw_a - muw_a^3)/(varw_a^(3/2)) # E(Zw_a^3)
-      for(i in 1:length(rw_a)){
+      for(i in seq_along(rw_a)){
         if (is.na(rw_a[i])==TRUE){
           rw_a[i]=0
         }
       }
       rw_u =  (ER3w_u- 3*muw_u*varw_u - muw_u^3)/(varw_u^(3/2)) # E(Zw_u^3)
-      for(i in 1:length(rw_u)){
+      for(i in seq_along(rw_u)){
         if (is.na(rw_u[i])==TRUE){
           rw_u[i]=0
         }
       }
       
       c1_w = rho_w(n, t)
-      for(i in 1:length(c1_w)){
+      for(i in seq_along(c1_w)){
         if ((abs(c1_w[i]))=="Inf"){
           c1_w[i]=0
         }
@@ -1848,14 +1940,14 @@ pval2_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
       # max-type case
       if (length(which(!is.na(match(c("m","max","all"), statistics))))>0){
         c1_d = rho_d(n, t)
-        for(i in 1:length(c1_d)){
+        for(i in seq_along(c1_d)){
           if ((abs(c1_d[i]))=="Inf"){
             c1_d[i]=0
           }
         }
         
         rd_a =  (ER3d_a - 3*mud_a*vard_a - mud_a^3)/(vard_a^(3/2))
-        for(i in 1:length(rd_a)){
+        for(i in seq_along(rd_a)){
           if (is.na(rd_a[i])==TRUE){
             rd_a[i]=0
           }
@@ -1863,7 +1955,7 @@ pval2_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
         if (rd_a[n/2]==0) {rd_a[n/2]=rd_a[n/2+1]}
         
         rd_u =  (ER3d_u - 3*mud_u*vard_u - mud_u^3)/(vard_u^(3/2))
-        for(i in 1:length(rd_u)){
+        for(i in seq_along(rd_u)){
           if (is.na(rd_u[i])==TRUE){
             rd_u[i]=0
           }
@@ -1957,7 +2049,7 @@ pval2_discrete_sub_1 = function(n,b,r,x,lower,upper){
   theta_b = rep(0,n)
   pos = which(1+2*r*b>0)
   theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
-  for(i in 1:length(theta_b[pos])){
+  for(i in seq_along(theta_b[pos])){
     if (is.na(theta_b[pos][i])==TRUE){
       theta_b[pos][i]=0
     }
@@ -2034,8 +2126,3 @@ pval2_discrete_sub_2 = function(n,b,r,x,lower,upper){
   result = try(dnorm(b)/b*integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value, silent=T) ## this is different from single 
   return(result)
 }
-
-
-
-
-

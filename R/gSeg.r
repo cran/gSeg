@@ -1,6 +1,37 @@
 ### main functions
 # single change-point
-gseg1 = function(n, E, statistics=c("all","o","w","g","m"), n0=0.05*n, n1=0.95*n, pval.appr=TRUE, skew.corr=TRUE, pval.perm=FALSE, B=100){
+gseg1 = function(n, E, statistics="m", n0=0.05*n, n1=0.95*n, pval.appr=TRUE, skew.corr=TRUE, pval.perm=FALSE, B=100){
+  if (!is.numeric(n) || length(n) != 1L || !is.finite(n) || n < 6L || n != as.integer(n)) {
+    stop("`n` must be an integer at least 6.")
+  }
+  E = as.matrix(E)
+  if (!is.numeric(E) || ncol(E) != 2L || nrow(E) < 1L || any(!is.finite(E)) ||
+      any(E != as.integer(E)) || any(E < 1L) || any(E > n) || any(E[,1] == E[,2])) {
+    stop("`E` must be a nonempty two-column edge matrix with distinct endpoints in 1, ..., n.")
+  }
+  edge.keys = paste(pmin(E[,1], E[,2]), pmax(E[,1], E[,2]), sep = ":")
+  if (anyDuplicated(edge.keys)) stop("`E` must not contain duplicate undirected edges.")
+  valid.statistics = c("o","ori","original","w","weighted","g","generalized","m","max","all")
+  if (!is.character(statistics) || !length(statistics) || any(is.na(statistics)) ||
+      any(!statistics %in% valid.statistics)) {
+    stop("`statistics` contains an unrecognized scan statistic.")
+  }
+  if (isTRUE(pval.perm) &&
+      (!is.numeric(B) || length(B) != 1L || !is.finite(B) || B < 1L || B != as.integer(B))) {
+    stop("`B` must be a positive integer.")
+  }
+  if (!is.logical(pval.appr) || length(pval.appr) != 1L || is.na(pval.appr) ||
+      !is.logical(pval.perm) || length(pval.perm) != 1L || is.na(pval.perm) ||
+      !is.logical(skew.corr) || length(skew.corr) != 1L || is.na(skew.corr)) {
+    stop("`pval.appr`, `pval.perm`, and `skew.corr` must be TRUE or FALSE.")
+  }
+  if (pval.appr && n < 9L) {
+    stop("The analytic scan approximation requires `n >= 9`; set `pval.appr = FALSE` for smaller samples.")
+  }
+  if (!is.numeric(n0) || length(n0) != 1L || !is.finite(n0) ||
+      !is.numeric(n1) || length(n1) != 1L || !is.finite(n1)) {
+    stop("`n0` and `n1` must be finite numbers.")
+  }
   r1 = list()
   n0 = ceiling(n0)
   n1 = floor(n1)
@@ -21,8 +52,13 @@ gseg1 = function(n, E, statistics=c("all","o","w","g","m"), n0=0.05*n, n1=0.95*n
   if(n1>(n-2)){
   	n1=n-2
   }
+  if (n0 > n1) stop("The scan range defined by `n0` and `n1` is empty.")
 
   r1$scanZ = gcp1bynode(n,Ebynode,statistics,n0,n1)
+  scan.maxima = unlist(lapply(r1$scanZ, function(x) x[["Zmax"]]), use.names = FALSE)
+  if (!length(scan.maxima) || any(!is.finite(scan.maxima))) {
+    stop("The requested scan statistic is degenerate for this graph; use a less dense similarity graph.")
+  }
     
   if (pval.appr==TRUE){
     mypval1 = pval1(n,E,Ebynode,r1$scanZ,statistics, skew.corr,n0,n1)
@@ -102,11 +138,45 @@ gseg1 = function(n, E, statistics=c("all","o","w","g","m"), n0=0.05*n, n1=0.95*n
     }
   }
 
+  if (!any(statistics %in% c("w", "weighted", "all"))) {
+    r1$scanZ$weighted <- NULL
+  }
   return(r1)
 }
 
 # changed interval
-gseg2 = function(n, E, statistics=c("all", "o", "w", "g", "m"), l0=0.05*n, l1=0.95*n, pval.appr=TRUE, skew.corr=TRUE, pval.perm=FALSE, B=100){
+gseg2 = function(n, E, statistics="m", l0=0.05*n, l1=0.95*n, pval.appr=TRUE, skew.corr=TRUE, pval.perm=FALSE, B=100){
+  if (!is.numeric(n) || length(n) != 1L || !is.finite(n) || n < 6L || n != as.integer(n)) {
+    stop("`n` must be an integer at least 6.")
+  }
+  E = as.matrix(E)
+  if (!is.numeric(E) || ncol(E) != 2L || nrow(E) < 1L || any(!is.finite(E)) ||
+      any(E != as.integer(E)) || any(E < 1L) || any(E > n) || any(E[,1] == E[,2])) {
+    stop("`E` must be a nonempty two-column edge matrix with distinct endpoints in 1, ..., n.")
+  }
+  edge.keys = paste(pmin(E[,1], E[,2]), pmax(E[,1], E[,2]), sep = ":")
+  if (anyDuplicated(edge.keys)) stop("`E` must not contain duplicate undirected edges.")
+  valid.statistics = c("o","ori","original","w","weighted","g","generalized","m","max","all")
+  if (!is.character(statistics) || !length(statistics) || any(is.na(statistics)) ||
+      any(!statistics %in% valid.statistics)) {
+    stop("`statistics` contains an unrecognized scan statistic.")
+  }
+  if (isTRUE(pval.perm) &&
+      (!is.numeric(B) || length(B) != 1L || !is.finite(B) || B < 1L || B != as.integer(B))) {
+    stop("`B` must be a positive integer.")
+  }
+  if (!is.logical(pval.appr) || length(pval.appr) != 1L || is.na(pval.appr) ||
+      !is.logical(pval.perm) || length(pval.perm) != 1L || is.na(pval.perm) ||
+      !is.logical(skew.corr) || length(skew.corr) != 1L || is.na(skew.corr)) {
+    stop("`pval.appr`, `pval.perm`, and `skew.corr` must be TRUE or FALSE.")
+  }
+  if (pval.appr && n < 9L) {
+    stop("The analytic scan approximation requires `n >= 9`; set `pval.appr = FALSE` for smaller samples.")
+  }
+  if (!is.numeric(l0) || length(l0) != 1L || !is.finite(l0) ||
+      !is.numeric(l1) || length(l1) != 1L || !is.finite(l1)) {
+    stop("`l0` and `l1` must be finite numbers.")
+  }
   l0 = ceiling(l0)
   l1 = floor(l1)
   Ebynode = vector("list", n)
@@ -125,8 +195,13 @@ gseg2 = function(n, E, statistics=c("all", "o", "w", "g", "m"), l0=0.05*n, l1=0.
   if(l1>=(n-1)){
      l1=n-2
    }
+  if (l0 > l1) stop("The interval-length range defined by `l0` and `l1` is empty.")
   r1 = list()
   r1$scanZ = gcp2bynode(n,Ebynode,statistics,l0,l1)
+  scan.maxima = unlist(lapply(r1$scanZ, function(x) x[["Zmax"]]), use.names = FALSE)
+  if (!length(scan.maxima) || any(!is.finite(scan.maxima))) {
+    stop("The requested scan statistic is degenerate for this graph; use a less dense similarity graph.")
+  }
 
   if (pval.appr==TRUE){
     mypval1 = pval2(n,E,Ebynode,r1$scanZ,statistics, skew.corr,l0,l1)
@@ -206,6 +281,9 @@ gseg2 = function(n, E, statistics=c("all", "o", "w", "g", "m"), l0=0.05*n, l1=0.
     }
   }
 
+  if (!any(statistics %in% c("w", "weighted", "all"))) {
+    r1$scanZ$weighted <- NULL
+  }
   return(r1)
 }
 
@@ -785,7 +863,7 @@ pval1_sub_1 = function(n,b,r,x,lower,upper){
   theta_b = rep(0,n-1)
   pos = which(1+2*r*b>0)
   theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
-  for(i in 1:length(theta_b[pos])){
+  for(i in seq_along(theta_b[pos])){
     if (is.na(theta_b[pos][i])==TRUE){
       theta_b[pos][i]=0
     }
@@ -934,7 +1012,7 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
         integrand0 = function(t) {integrate(integrandG,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
         pval.generalized = dchisq(b,2)*integrate(Vectorize(integrand0), l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
       }else{
-        pval.generazlied = 1
+        pval.generalized = 1
       }
       output$generalized = min(pval.generalized,1)
     }
@@ -1150,7 +1228,7 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
       integrand0 = function(t) {integrate(integrandG,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
       pval.generalized = dchisq(b,2)*integrate(Vectorize(integrand0), l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
     }else{
-      pval.generazlied = 1
+      pval.generalized = 1
     }
     output$generalized = min(pval.generalized,1)
   }
@@ -1167,7 +1245,7 @@ pval2_sub_1 = function(n,b,r,x,l0,l1){
   theta_b = rep(0,n-1)
   pos = which(1+2*r*b>0)
   theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
-  for(i in 1:length(theta_b[pos])){
+  for(i in seq_along(theta_b[pos])){
     if (is.na(theta_b[pos][i])==TRUE){
       theta_b[pos][i]=0
     }
@@ -1250,7 +1328,7 @@ pval2_sub_2 = function(n,b,r,x,l0,l1){
 permpval1 = function(n, Ebynode, scanZ, statistics="all", B=100, n0=ceiling(0.05*n), n1=floor(0.95*n)){
   # Computes the pvalue P(max_{n1<=t<=n2} Z(t)>b) by permuting the nodes in the graph.
   Z.ori = Z.weighted = Z.max.type = Z.generalized = matrix(0,B,n)
-  for(b in 1:B){
+  for(b in seq_len(B)){
     if(b%%1000 ==0) {
       cat(b, "permutations completed.\n")
     }
@@ -1279,16 +1357,16 @@ permpval1 = function(n, Ebynode, scanZ, statistics="all", B=100, n0=ceiling(0.05
   }
 
   output = list()
-  p=1-(0:(B-1))/B
+  p=(rev(seq_len(B))+1)/(B+1)
 
   if (length(which(!is.na(match(c("o","ori","original","all"), statistics))))>0){
   	# if((n0<=1 & n1>=(n-2)) | (n0<=2 & n1>=(n-1))){
       # n0 = 2
       # n1 = n-2
     # }
-    maxZ = apply(Z.ori[,n0:n1],1,max)
+    maxZ = apply(Z.ori[,n0:n1, drop = FALSE],1,max)
     maxZs = sort(maxZ)
-    output$ori = list(pval=length(which(maxZs>=scanZ$ori$Zmax))/B, curve=cbind(maxZs,p), maxZs=maxZs, Z=Z.ori)
+    output$ori = list(pval=(1+sum(maxZs>=scanZ$ori$Zmax))/(B+1), curve=cbind(maxZs,p), maxZs=maxZs, Z=Z.ori)
   }
   
 
@@ -1300,19 +1378,19 @@ permpval1 = function(n, Ebynode, scanZ, statistics="all", B=100, n0=ceiling(0.05
   # }
   if (length(which(!is.na(match(c("w","weighted","all"), statistics))))>0){
     
-    maxZ = apply(Z.weighted[,n0:n1],1,max)
+    maxZ = apply(Z.weighted[,n0:n1, drop = FALSE],1,max)
     maxZs = sort(maxZ)
-    output$weighted = list(pval=length(which(maxZs>=scanZ$weighted$Zmax))/B, curve=cbind(maxZs,p), maxZs=maxZs, Z=Z.weighted)
+    output$weighted = list(pval=(1+sum(maxZs>=scanZ$weighted$Zmax))/(B+1), curve=cbind(maxZs,p), maxZs=maxZs, Z=Z.weighted)
   }
   if (length(which(!is.na(match(c("m","max","all"), statistics))))>0){
-    maxZ = apply(Z.max.type[,n0:n1],1,max)
+    maxZ = apply(Z.max.type[,n0:n1, drop = FALSE],1,max)
     maxZs = sort(maxZ)
-    output$max.type = list(pval=length(which(maxZs>=scanZ$max.type$Zmax))/B, curve=cbind(maxZs,p), maxZs=maxZs, Z=Z.max.type)
+    output$max.type = list(pval=(1+sum(maxZs>=scanZ$max.type$Zmax))/(B+1), curve=cbind(maxZs,p), maxZs=maxZs, Z=Z.max.type)
   }
   if (length(which(!is.na(match(c("g","generalized","all"), statistics))))>0){
-    maxZ = apply(Z.generalized[,n0:n1],1,max)
+    maxZ = apply(Z.generalized[,n0:n1, drop = FALSE],1,max)
     maxZs = sort(maxZ)
-    output$generalized = list(pval=length(which(maxZs>=scanZ$generalized$Zmax))/B, curve=cbind(maxZs,p), maxZs=maxZs, Z=Z.generalized)
+    output$generalized = list(pval=(1+sum(maxZs>=scanZ$generalized$Zmax))/(B+1), curve=cbind(maxZs,p), maxZs=maxZs, Z=Z.generalized)
   }
 
   return(output)
@@ -1321,8 +1399,8 @@ permpval1 = function(n, Ebynode, scanZ, statistics="all", B=100, n0=ceiling(0.05
 # p value from permutation for changed interval
 permpval2 = function(n,Ebynode,scanZ,statistics="all", B=100,l0=ceiling(0.05*n),l1=floor(0.95*n)){
   # Computes the pvalue for changed interval by permuting the nodes in the graph.
-  Zmax.ori = Zmax.weighted = Zmax.max.type = Zmax.generalized = rep(0,n)
-  for(b in 1:B){
+  Zmax.ori = Zmax.weighted = Zmax.max.type = Zmax.generalized = rep(0,B)
+  for(b in seq_len(B)){
     if(b%%1000 ==0) {
       cat(b, "permutations completed.\n")
     }
@@ -1351,12 +1429,11 @@ permpval2 = function(n,Ebynode,scanZ,statistics="all", B=100,l0=ceiling(0.05*n),
   }
 
   output = list()
-  p=1-(0:(B-1))/B
+  p=(rev(seq_len(B))+1)/(B+1)
 
   if (length(which(!is.na(match(c("o","ori","original","all"), statistics))))>0){
-    maxZ = max(Zmax.ori)
-    maxZs = sort(maxZ)
-    output$ori = list(pval=length(which(maxZs>=scanZ$ori$Zmax))/B, curve=cbind(maxZs,p), maxZs=maxZs, Zmax=Zmax.ori)
+    maxZs = sort(Zmax.ori)
+    output$ori = list(pval=(1+sum(maxZs>=scanZ$ori$Zmax))/(B+1), curve=cbind(maxZs,p), maxZs=maxZs, Zmax=Zmax.ori)
   }
   # if (length(which(!is.na(match(c("w","weighted","m","max","g","generalized","all"),statistics))))>0){
     # if(l0<=1){
@@ -1367,24 +1444,17 @@ permpval2 = function(n,Ebynode,scanZ,statistics="all", B=100,l0=ceiling(0.05*n),
     # }
   # }
   if (length(which(!is.na(match(c("w","weighted","all"), statistics))))>0){
-    maxZ = max(Zmax.weighted)
-    maxZs = sort(maxZ)
-    output$weighted = list(pval=length(which(maxZs>=scanZ$weighted$Zmax))/B, curve=cbind(maxZs,p), maxZs=maxZs, Zmax=Zmax.weighted)
+    maxZs = sort(Zmax.weighted)
+    output$weighted = list(pval=(1+sum(maxZs>=scanZ$weighted$Zmax))/(B+1), curve=cbind(maxZs,p), maxZs=maxZs, Zmax=Zmax.weighted)
   }
   if (length(which(!is.na(match(c("m","max","all"), statistics))))>0){
-    maxZ = max(Zmax.max.type)
-    maxZs = sort(maxZ)
-    output$max.type = list(pval=length(which(maxZs>=scanZ$max.type$Zmax))/B, curve=cbind(maxZs,p), maxZs=maxZs, Zmax=Zmax.max.type)
+    maxZs = sort(Zmax.max.type)
+    output$max.type = list(pval=(1+sum(maxZs>=scanZ$max.type$Zmax))/(B+1), curve=cbind(maxZs,p), maxZs=maxZs, Zmax=Zmax.max.type)
   }
   if (length(which(!is.na(match(c("g","generalized","all"), statistics))))>0){
-    maxZ = max(Zmax.generalized)
-    maxZs = sort(maxZ)
-    output$generalized = list(pval=length(which(maxZs>=scanZ$generalized$Zmax))/B, curve=cbind(maxZs,p), maxZs=maxZs, Zmax=Zmax.generalized)
+    maxZs = sort(Zmax.generalized)
+    output$generalized = list(pval=(1+sum(maxZs>=scanZ$generalized$Zmax))/(B+1), curve=cbind(maxZs,p), maxZs=maxZs, Zmax=Zmax.generalized)
   }
 
   return(output)
 }
-
-
-
-

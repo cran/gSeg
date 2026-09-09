@@ -1,14 +1,25 @@
 Package: gSeg
-Version: 1.0
-Date: 2020-9-21
+Version: 1.1
+Date: 2026-09-09
 Title: Graph-Based Change-Point Detection (g-Segmentation)
-Author: Hao Chen, Nancy R. Zhang, Lynna Chu, and Hoseung Song
-Maintainer: Hao Chen <hxchen@ucdavis.edu>
+Authors@R: c(
+    person(given = "Hao", family = "Chen", role = c("aut", "cre"),
+           email = "hxchen@ucdavis.edu",
+           comment = c(ORCID = "0000-0002-4597-2773")),
+    person(given = c("Nancy", "R."), family = "Zhang", role = "aut"),
+    person(given = "Lynna", family = "Chu", role = "aut"),
+    person(given = "Hoseung", family = "Song", role = "aut")
+    )
 Depends: R (>= 3.0.1)
-Suggests: ade4
-Description: Using an approach based on similarity graph to estimate change-point(s) and the corresponding p-values.  Can be applied to any type of data (high-dimensional, non-Euclidean, etc.) as long as a reasonable similarity measure is available.
+Imports: ade4
+Description: Uses similarity graphs to estimate change-points and their p-values. The default data-level interface constructs a k-MST with k=floor(sqrt(N)) and reports the max-type scan. The generalized, original, and weighted scans remain available explicitly.
 License: GPL (>= 2)
 NeedsCompilation: no
-Packaged: 2020-09-23 16:38:14 UTC; hao
+Packaged: 2026-09-09 04:10:03 UTC; hao
+Author: Hao Chen [aut, cre] (ORCID: <https://orcid.org/0000-0002-4597-2773>),
+  Nancy R. Zhang [aut],
+  Lynna Chu [aut],
+  Hoseung Song [aut]
+Maintainer: Hao Chen <hxchen@ucdavis.edu>
 Repository: CRAN
-Date/Publication: 2020-09-24 09:10:12 UTC
+Date/Publication: 2026-09-09 14:10:13 UTC

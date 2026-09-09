@@ -4,13 +4,13 @@
 \description{This function finds an interval in the sequence where their underlying distribution differs from the rest of the sequence. It provides four graph-based test statistics.
 }
 \usage{
-gseg2(n, E, statistics=c("all","o","w","g","m"), l0=0.05*n, l1=0.95*n, pval.appr=TRUE,
+gseg2(n, E, statistics="m", l0=0.05*n, l1=0.95*n, pval.appr=TRUE,
  skew.corr=TRUE, pval.perm=FALSE, B=100)
 }
 \arguments{
-  \item{n}{The number of observations in the sequence.}
+  \item{n}{The number of observations in the sequence; it must be at least 6.}
   \item{E}{The edge matrix (a "number of edges" by 2 matrix) for the similarity graph.  Each row contains the node indices of an edge.}
-   \item{statistics}{The scan statistic to be computed. A character indicating the type of of scan statistic desired. The default is \code{"all"}.
+   \item{statistics}{The scan statistics to be computed. The default is \code{"m"}, which reports the max-type scan.
 
    \code{"all"}: specifies to compute \bold{a}ll of the scan statistics: original, weighted, generalized, and max-type;
 
@@ -25,7 +25,7 @@ gseg2(n, E, statistics=c("all","o","w","g","m"), l0=0.05*n, l1=0.95*n, pval.appr
    }
   \item{l0}{The minimum length of the interval to be considered as a changed interval.}
   \item{l1}{The maximum length of the interval to be considered as a changed interval.}
-  \item{pval.appr}{If it is TRUE, the function outputs p-value approximation based on asymptotic properties.}
+  \item{pval.appr}{If it is TRUE, the function outputs a p-value approximation based on asymptotic properties. The analytic approximation requires \code{n >= 9}.}
   \item{skew.corr}{This argument is useful only when pval.appr=TRUE.  If skew.corr is TRUE, the p-value approximation would incorporate skewness correction.}
   \item{pval.perm}{If it is TRUE, the function outputs p-value from doing B permutations, where B is another argument that you can specify. Doing permutation could be time consuming, so use this argument with caution as it may take a long time to finish the permutation.}
   \item{B}{This argument is useful only when pval.perm=TRUE.  The default value for B is 100.}
@@ -62,4 +62,3 @@ data(Example)
 r5=gseg2(n,E5,statistics="all")
 
 }
-

@@ -1,2 +1,3 @@
-export(gseg1, gseg2, gseg1_discrete, gseg2_discrete, nnl)
-importFrom("stats", "dnorm", "integrate", "pnorm", "dchisq")
+export(gseg1, gseg2, gseg1_data, gseg2_data, gseg_kmst, gseg1_discrete, gseg2_discrete, nnl)
+importFrom("stats", "dnorm", "integrate", "pnorm", "dchisq", "dist", "as.dist")
+importFrom("ade4", "mstree")

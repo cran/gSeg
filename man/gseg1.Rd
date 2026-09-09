@@ -3,13 +3,13 @@
 \title{Graph-Based Change-Point Detection for Single Change-Point}
 \description{This function finds a break point in the sequence where the underlying distribution changes. It provides four graph-based test statistics.}
 \usage{
-gseg1(n, E, statistics=c("all","o","w","g","m"), n0=0.05*n, n1=0.95*n, pval.appr=TRUE,
+gseg1(n, E, statistics="m", n0=0.05*n, n1=0.95*n, pval.appr=TRUE,
  skew.corr=TRUE, pval.perm=FALSE, B=100)
 }
 \arguments{
-  \item{n}{The number of observations in the sequence.}
+  \item{n}{The number of observations in the sequence; it must be at least 6.}
   \item{E}{The edge matrix (a "number of edges" by 2 matrix) for the similarity graph.  Each row contains the node indices of an edge.}
-  \item{statistics}{The scan statistic to be computed. A character indicating the type of of scan statistic desired. The default is \code{"all"}.
+  \item{statistics}{The scan statistics to be computed. The default is \code{"m"}, which reports the max-type scan.
 
    \code{"all"}: specifies to compute \bold{a}ll of the scan statistics: original, weighted, generalized, and max-type;
 
@@ -23,7 +23,7 @@ gseg1(n, E, statistics=c("all","o","w","g","m"), n0=0.05*n, n1=0.95*n, pval.appr
    }
   \item{n0}{The starting index to be considered as a candidate for the change-point.}
   \item{n1}{The ending index to be considered as a candidate for the change-point.}
-  \item{pval.appr}{If it is TRUE, the function outputs p-value approximation based on asymptotic properties.}
+  \item{pval.appr}{If it is TRUE, the function outputs a p-value approximation based on asymptotic properties. The analytic approximation requires \code{n >= 9}.}
   \item{skew.corr}{This argument is useful only when pval.appr=TRUE.  If skew.corr is TRUE, the p-value approximation would incorporate skewness correction.}
   \item{pval.perm}{If it is TRUE, the function outputs p-value from doing B permutations, where B is another argument that you can specify. Doing permutation could be time consuming, so use this argument with caution as it may take a long time to finish the permutation.}
   \item{B}{This argument is useful only when pval.perm=TRUE.  The default value for B is 100.}
@@ -74,19 +74,18 @@ r1_b = gseg1(n,E1, statistics=c("w","g"))
 ## E2 is an edge matrix representing a similarity graph.
 # It is constructed on a sequence of length n=200 with a change in mean 
 # away from the middle of the sequence (tau=45).
-r2 = gseg1(n,E2,statistic="all")
+r2 = gseg1(n,E2,statistics="all")
 
 
 ## E3 is an edge matrix representing a similarity graph.
 # It is constructed on a sequence of length n=200 with a change in both mean 
 # and variance away from the middle of the sequence (tau = 145).
-r3=gseg1(n,E3,statistic="all")
+r3=gseg1(n,E3,statistics="all")
 
 
 ## E4 is an edge matrix representing a similarity graph.
 # It is constructed on a sequence of length n=200 with a change in both mean 
 # and variance away from the middle of the sequence (tau = 50).
-r4=gseg1(n,E4,statistic="all")
+r4=gseg1(n,E4,statistics="all")
 
 }
-

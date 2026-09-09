@@ -34,7 +34,7 @@ nnlink = function(distance){
       e = 1
       for (i in 1:nodes){
         if (length(adj[[i]])>0){
-          for (j in 1:length(adj[[i]])){
+          for (j in seq_along(adj[[i]])){
             E[e,1] = i
             E[e,2] = adj[[i]][j]
             adj[[E[e,2]]] = setdiff(adj[[E[e,2]]],i)
@@ -60,7 +60,7 @@ nnlink = function(distance){
       adj2 = temp2$adj
       for (i in 1:Components){
         if (length(adj2[[i]])>0){
-          for (j in 1:length(adj2[[i]])){
+          for (j in seq_along(adj2[[i]])){
             e1 = i
             e2 = adj2[[i]][j]
             id_com = ID_edges_candidate[e1,e2] 
@@ -83,7 +83,7 @@ nnlink = function(distance){
       Components = length(Com2)
       newCom = vector("list",Components)
       for (i in 1:Components){
-        for (j in 1:length(Com2[[i]])){
+        for (j in seq_along(Com2[[i]])){
           newCom[[i]] = c(newCom[[i]], Com[[Com2[[i]][j]]])
         }
         newCom[[i]] = sort(newCom[[i]])
@@ -117,7 +117,7 @@ nnlink_Com = function(distance){
     edgeid = which(distance[i,] == min(distance[i,-i]))
     adj[[i]] = c(adj[[i]],edgeid)
     
-    for (j in 1:length(edgeid)){
+    for (j in seq_along(edgeid)){
       adj[[edgeid[j]]] = c(adj[[edgeid[j]]],i)
     }
   }
@@ -152,11 +152,10 @@ nnlink_Com = function(distance){
 
 dfs = function(s,visited,adj){
   visited[s] = 1
-  for (i in 1:length(adj[[s]])){
+  for (i in seq_along(adj[[s]])){
     if (visited[adj[[s]][i]] == 0){
       visited = dfs(adj[[s]][i],visited,adj)
     }
   }
   return(visited)
 }
-
