@@ -26,3 +26,11 @@ dat = dat[sam,]
 dat_uni = unique(dat)
 E = nnl(dist(dat_uni), 1)
 }
+
+\details{
+Distances must be finite, nonnegative and symmetric, with zero diagonal.
+\code{K} must be an integer between 1 and \code{floor(N/2)}. Zero-distance
+neighbours are allowed, but self-links are excluded. Successive layers use
+unused edges; a clear error is raised if another connected layer cannot be
+constructed, even when \code{K} satisfies the counting bound.
+}

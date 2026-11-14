@@ -1,64 +1,85 @@
 \name{gseg2}
 \alias{gseg2}
-\title{Graph-Based Change-Point Detection for Changed Interval}
-\description{This function finds an interval in the sequence where their underlying distribution differs from the rest of the sequence. It provides four graph-based test statistics.
+\title{Graph-Based Detection of a Changed Interval}
+\description{
+Detects an interval whose distribution differs from the remainder of a
+sequence. Given observations or dissimilarities, the function constructs a
+k-MST and applies the max-type edge-count scan by default. A user-supplied
+similarity graph is also supported.
 }
 \usage{
-gseg2(n, E, statistics="m", l0=0.05*n, l1=0.95*n, pval.appr=TRUE,
- skew.corr=TRUE, pval.perm=FALSE, B=100)
+gseg2(x = NULL, dissimilarity = NULL, statistics = "m",
+  l0 = NULL, l1 = NULL, pval.appr = TRUE, skew.corr = TRUE,
+  pval.perm = FALSE, B = 100, k = NULL, n = NULL, E = NULL)
 }
 \arguments{
-  \item{n}{The number of observations in the sequence; it must be at least 6.}
-  \item{E}{The edge matrix (a "number of edges" by 2 matrix) for the similarity graph.  Each row contains the node indices of an edge.}
-   \item{statistics}{The scan statistics to be computed. The default is \code{"m"}, which reports the max-type scan.
-
-   \code{"all"}: specifies to compute \bold{a}ll of the scan statistics: original, weighted, generalized, and max-type;
-
-   \code{"o", "ori"} or \code{"original"}: specifies the \bold{o}riginal edge-count scan statistic;
-
-   \code{"w"} or \code{"weighted"}: specifies the \bold{w}eighted edge-count scan statistic;
-
-   \code{"g"} or \code{"generalized"}: specifies the \bold{g}eneralized edge-count scan statistic; and
-
-   \code{"m"} or \code{"max"}: specifies the \bold{m}ax-type edge-count scan statistic.
-
-   }
-  \item{l0}{The minimum length of the interval to be considered as a changed interval.}
-  \item{l1}{The maximum length of the interval to be considered as a changed interval.}
-  \item{pval.appr}{If it is TRUE, the function outputs a p-value approximation based on asymptotic properties. The analytic approximation requires \code{n >= 9}.}
-  \item{skew.corr}{This argument is useful only when pval.appr=TRUE.  If skew.corr is TRUE, the p-value approximation would incorporate skewness correction.}
-  \item{pval.perm}{If it is TRUE, the function outputs p-value from doing B permutations, where B is another argument that you can specify. Doing permutation could be time consuming, so use this argument with caution as it may take a long time to finish the permutation.}
-  \item{B}{This argument is useful only when pval.perm=TRUE.  The default value for B is 100.}
+\item{x}{A numeric matrix with observations in rows. For compatibility, the
+first positional argument may instead be the number of observations when the
+second positional argument is an edge matrix.}
+\item{dissimilarity}{A square symmetric dissimilarity matrix or a \code{dist}
+object. For compatibility, the second positional argument may instead be a
+two-column edge matrix. Supply exactly one of \code{x} and
+\code{dissimilarity} for a data-level call.}
+\item{statistics}{The scan statistic or statistics to compute. The default
+\code{"m"} reports only the max-type edge-count test (MET). Use \code{"g"}
+for GET, \code{"o"} for the original edge-count test, \code{"w"} for the
+weighted edge-count test, or \code{"all"} for all four. Long-form names are
+also accepted.}
+\item{l0}{Minimum candidate interval length. The default is \code{0.05 * N}.}
+\item{l1}{Maximum candidate interval length. The default is \code{0.95 * N}.}
+\item{pval.appr}{Whether to calculate the analytic p-value approximation.
+This approximation requires at least nine observations.}
+\item{skew.corr}{Whether to include the skewness correction in the analytic
+p-value approximation.}
+\item{pval.perm}{Whether to calculate a permutation p-value.}
+\item{B}{Number of permutations.}
+\item{k}{Number of MST layers for a data-level call. The default is
+\code{floor(sqrt(N))}; the largest allowed value is \code{floor(N/2)}.}
+\item{n}{Number of observations in a graph-level call. Both named and
+positional legacy graph arguments are supported.}
+\item{E}{Two-column edge matrix in a graph-level call. Do not supply
+\code{k} together with a supplied graph.}
 }
 \value{
-Returns a list \code{scanZ} with \code{tauhat}, \code{Zmax}, and a matrix of the scan statistics for each type of scan statistic specified. See below for more details.
-  \item{tauhat}{An estimate of the two ends of the changed interval.}
-  \item{Zmax}{The test statistic (maximum of the scan statistics).}
-  \item{Z}{A matrix of the original scan statistics (standardized counts) if statistic specified is "all" or "o".}
-  \item{Zw}{A matrix of the weighted scan statistics (standardized counts) if statistic specified is "all" or "w".}
-  \item{S}{A matrix of the generalized scan statistics (standardized counts) if statistic specified is "all" or "g".}
-  \item{M}{A matrix of the max-type scan statistics (standardized counts) if statistic specified is "all" or "m".}
-  \item{R}{A matrix of raw counts of the original scan statistic. This output only exists if the statistic specified is "all" or "o".}
-  \item{Rw}{A matrix of raw counts of the weighted scan statistic. This output only exists if statistic specified is "all" or "w".}
-  \item{pval.appr}{The approximated p-value based on asymptotic theory for each type of statistic specified.}
-  \item{pval.perm}{This output exists only when the argument pval.perm is TRUE . It is the permutation p-value from B permutations and appears for each type of statistic specified (same for perm.curve, perm.maxZs, and perm.Z).}
-  \item{perm.curve}{A B by 2 matrix with the first column being critical values corresponding to the p-values in the second column.}
-  \item{perm.maxZs}{A sorted vector recording the test statistics in the B permutaitons.}
-  \item{perm.Z}{A B by n-squared matrix with each row being the vectorized scan statistics from each permutaiton run.}
+A list with \code{scanZ} and any requested p-values. Each requested component
+of \code{scanZ} contains the estimated interval \code{tauhat}, maximum scan
+statistic \code{Zmax}, and scan surface. Data-level calls additionally return
+the constructed \code{graph} and \code{k}.
 }
 \seealso{
-  \code{\link{gSeg}}, \code{\link{gseg1}}, \code{\link{gseg2_discrete}}
+\code{\link{gseg1}}, \code{\link{gseg2_graph}},
+\code{\link{gseg2_discrete}}, \code{\link{gseg_kmst}}
 }
 \examples{
-data(Example)
-# Five examples, each example is a n-length sequence.
-# Ei (i=1,...,5): an edge matrix representing a similarity graph constructed on the
-# observations in the ith sequence.  
-# Check '?gSeg' to see how the Ei's were constructed.
+set.seed(2)
+x <- matrix(rnorm(80), nrow = 20)
+x[8:13, ] <- x[8:13, ] + 1
 
-## E5 is an edge matrix representing a similarity graph.
-# It is constructed on a sequence of length n=200 with a change in both mean
-# and variance on an interval (tau1 = 155, tau2 = 185).
-r5=gseg2(n,E5,statistics="all")
+# Main interface: build the default k-MST and report MET.
+ans <- gseg2(x, pval.appr = FALSE)
+names(ans$scanZ)
+ans$k
 
+# Earlier graph-level calls remain supported.
+ans.graph <- gseg2(nrow(x), ans$graph, pval.appr = FALSE)
+}
+
+\details{
+An interval with boundaries \code{(i, j)} contains observations
+\code{i + 1, ..., j}. When there are \code{r} tied maximizing intervals,
+\code{tauhat} (or \code{tauhat_a}/\code{tauhat_u}) retains the earlier
+layout: its first \code{r} entries are the left boundaries and its last
+\code{r} entries are the corresponding right boundaries. All returned
+intervals satisfy the requested length range after the documented endpoint
+adjustments. The analytic approximation requires a nonzero length range;
+use permutation calibration for a single permitted interval length.
+}
+
+\note{
+Analytic integrations are checked for convergence and finite probability
+outputs in \code{[0,1]}. An unavailable approximation raises an error rather
+than returning an invalid probability. Setting \code{pval.appr = FALSE} allows
+justified permutation calibration to be used instead. Scan components must be
+well-defined on the requested domain; undefined components are not replaced
+by zero.
 }

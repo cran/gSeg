@@ -1,6 +1,6 @@
 ### main functions
 # single change-point
-gseg1 = function(n, E, statistics="m", n0=0.05*n, n1=0.95*n, pval.appr=TRUE, skew.corr=TRUE, pval.perm=FALSE, B=100){
+.gseg1_graph_impl = function(n, E, statistics="m", n0=0.05*n, n1=0.95*n, pval.appr=TRUE, skew.corr=TRUE, pval.perm=FALSE, B=100){
   if (!is.numeric(n) || length(n) != 1L || !is.finite(n) || n < 6L || n != as.integer(n)) {
     stop("`n` must be an integer at least 6.")
   }
@@ -37,11 +37,8 @@ gseg1 = function(n, E, statistics="m", n0=0.05*n, n1=0.95*n, pval.appr=TRUE, ske
   n1 = floor(n1)
   Ebynode = vector("list", n)
   
-  for(i in 1:n) Ebynode[[i]]=rep(0,0)
-  for(i in 1:nrow(E)){
-    Ebynode[[E[i,1]]] = c(Ebynode[[E[i,1]]],E[i,2])
-    Ebynode[[E[i,2]]] = c(Ebynode[[E[i,2]]],E[i,1])
-  }
+  Ebynode = unname(split(as.vector(t(E[,2:1,drop=FALSE])),
+                         factor(as.vector(t(E)),levels=seq_len(n))))
   
   n0_us = n0
   n1_us = n1
@@ -53,15 +50,19 @@ gseg1 = function(n, E, statistics="m", n0=0.05*n, n1=0.95*n, pval.appr=TRUE, ske
   	n1=n-2
   }
   if (n0 > n1) stop("The scan range defined by `n0` and `n1` is empty.")
+  if (pval.appr && n0 == n1) {
+    stop("The analytic scan approximation requires n0 < n1; set `pval.appr = FALSE` and use `pval.perm = TRUE` for this restricted range.")
+  }
 
   r1$scanZ = gcp1bynode(n,Ebynode,statistics,n0,n1)
+  .gseg_check_single_paths(r1$scanZ, n0, n1)
   scan.maxima = unlist(lapply(r1$scanZ, function(x) x[["Zmax"]]), use.names = FALSE)
   if (!length(scan.maxima) || any(!is.finite(scan.maxima))) {
     stop("The requested scan statistic is degenerate for this graph; use a less dense similarity graph.")
   }
     
   if (pval.appr==TRUE){
-    mypval1 = pval1(n,E,Ebynode,r1$scanZ,statistics, skew.corr,n0,n1)
+    mypval1 = .gseg_analytic(function() pval1(n,E,Ebynode,r1$scanZ,statistics, skew.corr,n0,n1))
     r1$pval.appr = mypval1
   }
   if (pval.perm==TRUE){
@@ -145,7 +146,7 @@ gseg1 = function(n, E, statistics="m", n0=0.05*n, n1=0.95*n, pval.appr=TRUE, ske
 }
 
 # changed interval
-gseg2 = function(n, E, statistics="m", l0=0.05*n, l1=0.95*n, pval.appr=TRUE, skew.corr=TRUE, pval.perm=FALSE, B=100){
+.gseg2_graph_impl = function(n, E, statistics="m", l0=0.05*n, l1=0.95*n, pval.appr=TRUE, skew.corr=TRUE, pval.perm=FALSE, B=100){
   if (!is.numeric(n) || length(n) != 1L || !is.finite(n) || n < 6L || n != as.integer(n)) {
     stop("`n` must be an integer at least 6.")
   }
@@ -196,6 +197,9 @@ gseg2 = function(n, E, statistics="m", l0=0.05*n, l1=0.95*n, pval.appr=TRUE, ske
      l1=n-2
    }
   if (l0 > l1) stop("The interval-length range defined by `l0` and `l1` is empty.")
+  if (pval.appr && l0 == l1) {
+    stop("The analytic scan approximation requires l0 < l1; set `pval.appr = FALSE` and use `pval.perm = TRUE` for this restricted range.")
+  }
   r1 = list()
   r1$scanZ = gcp2bynode(n,Ebynode,statistics,l0,l1)
   scan.maxima = unlist(lapply(r1$scanZ, function(x) x[["Zmax"]]), use.names = FALSE)
@@ -204,7 +208,7 @@ gseg2 = function(n, E, statistics="m", l0=0.05*n, l1=0.95*n, pval.appr=TRUE, ske
   }
 
   if (pval.appr==TRUE){
-    mypval1 = pval2(n,E,Ebynode,r1$scanZ,statistics, skew.corr,l0,l1)
+    mypval1 = .gseg_analytic(function() pval2(n,E,Ebynode,r1$scanZ,statistics, skew.corr,l0,l1))
     r1$pval.appr = mypval1
   }
   if (pval.perm==TRUE){
@@ -370,7 +374,7 @@ gcp1bynode = function(n, Ebynode, statistics="all", n0=ceiling(0.05*n), n1=floor
     var.Rw=((n-tt-1)/(n-2))^2*v11 + 2*((n-tt-1)/(n-2))*((tt-1)/(n-2))*v12+((tt-1)/(n-2))^2*v22
     Zw = -(mu.Rw-Rw)/sqrt(apply(cbind(var.Rw,rep(0,n)),1,max))
     
-    if (length(which(!is.na(match(c("w","weighted","m","all"),statistics))))>0){
+    if (length(which(!is.na(match(c("w","weighted","m","max","all"),statistics))))>0){
       tauhat = temp[which.max(Zw[n0:n1])]
       weighted = list(tauhat=tauhat, Zmax=Zw[tauhat], Zw=Zw, Rw=Rw)
       scanZ$weighted = weighted
@@ -459,8 +463,7 @@ gcp2bynode = function(n, Ebynode, statistics="all", l0=ceiling(0.05*n), l1=floor
     Zv = rep(0,n*n)
     Zv[ids] = (mu.t[difv[ids]]-Rv[ids])/sqrt(V.tt[difv[ids]])
     Zmax = max(Zv[ids2])
-    tauhat0 = which(Zv == Zmax)
-    tauhat = c(floor(tauhat0/n)+1, (tauhat0-1)%%n+1)
+    tauhat = .gseg_interval_argmax(Zv, ids2, n)
 
     ori = list(tauhat=tauhat, Zmax=Zmax, Z=matrix(Zv,n,byrow=TRUE), R=Rtmp, Zv=Zv)
     scanZ$ori = ori
@@ -493,10 +496,9 @@ gcp2bynode = function(n, Ebynode, statistics="all", l0=ceiling(0.05*n), l1=floor
     Zv2 = rep(0,n*n)
     Zv2[ids] = -(muRw.tt[difv[ids]]-Rw_v[ids])/sqrt(sigRw[difv[ids]])
 
-    if (length(which(!is.na(match(c("w","weighted","m","all"), statistics))))>0){
+    if (length(which(!is.na(match(c("w","weighted","m","max","all"), statistics))))>0){
       Zmax = max(Zv2[ids2])
-      tauhat0 = which(Zv2 == Zmax)
-      tauhat = c(floor(tauhat0/n)+1, (tauhat0-1)%%n+1)
+      tauhat = .gseg_interval_argmax(Zv2, ids2, n)
       weighted = list(tauhat=tauhat, Zmax=Zmax, Zw=matrix(Zv2,n,byrow=TRUE), Rw=Rw_v, Zw_v=Zv2)
       scanZ$weighted = weighted
     }
@@ -516,8 +518,7 @@ gcp2bynode = function(n, Ebynode, statistics="all", l0=ceiling(0.05*n), l1=floor
         M = rep(0,n*n)
         M[ids] =apply(cbind(abs(Zv1[ids]), Zv2[ids]),1,max)
         Zmax = max(M[ids2])
-        tauhat0 = which(M == Zmax)
-        tauhat = c(floor(tauhat0/n)+1, (tauhat0-1)%%n+1)
+        tauhat = .gseg_interval_argmax(M, ids2, n)
         max.type = list(tauhat=tauhat, Zmax=Zmax, M=matrix(M,n,byrow=TRUE), Mv=M)
         scanZ$max.type = max.type
       }
@@ -525,8 +526,7 @@ gcp2bynode = function(n, Ebynode, statistics="all", l0=ceiling(0.05*n), l1=floor
         Zv = rep(0,n*n)
         Zv[ids] = (Zv1[ids])^2 + (Zv2[ids])^2
         Zmax = max(Zv[ids2])
-        tauhat0 = which(Zv == Zmax)
-        tauhat = c(floor(tauhat0/n)+1, (tauhat0-1)%%n+1)
+        tauhat = .gseg_interval_argmax(Zv, ids2, n)
         generalized = list(tauhat=tauhat, Zmax=Zmax, S=matrix(Zv,n,byrow=TRUE), Sv=Zv)
         scanZ$generalized = generalized
       }
@@ -575,7 +575,7 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
           x = rho_one(n,s,sumE,sumEisq)
           x*Nu(sqrt(2*b^2*x))
         }
-        pval.ori = dnorm(b)*b*integrate(integrandO, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+        pval.ori = dnorm(b)*b*.gseg_integrate(integrandO, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
       }else{
         pval.ori = 1
       }
@@ -597,7 +597,7 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
           x = rho_one_Rw(n,t)
           x*Nu(sqrt(2*b^2*x))
         }
-        pval.weighted = dnorm(b)*b*integrate(integrandW, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+        pval.weighted = dnorm(b)*b*.gseg_integrate(integrandW, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
       }else{
         pval.weighted = 1
       }
@@ -614,9 +614,9 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
           x2 = rho_one_Rw(n,t)
           x2*Nu(sqrt(2*b^2*x2))
         }
-        pval_u1 = 2*dnorm(b)*b*integrate(integrand1, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-        pval_u2 = dnorm(b)*b*integrate(integrand2, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-        pval.max.type = as.numeric(1-(1-min(pval_u1,1))*(1-min(pval_u2,1)))
+        pval_u1 = 2*dnorm(b)*b*.gseg_integrate(integrand1, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+        pval_u2 = dnorm(b)*b*.gseg_integrate(integrand2, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+        pval.max.type = as.numeric(.gseg_combine_tails(pval_u1, pval_u2))
       }else{
         pval.max.type = 1
       }
@@ -630,8 +630,8 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
           x2 = rho_one_Rw(n,t)
           2*(x1*cos(w)^2+x2*sin(w)^2)*b*Nu(sqrt(2*b*(x1*cos(w)^2+x2*sin(w)^2)))/(2*pi)
         }
-        integrand0 = function(t) {integrate(integrandG,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
-        pval.generalized = dchisq(b,2)*integrate(Vectorize(integrand0),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
+        integrand0 = function(t) {.gseg_integrate(integrandG,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
+        pval.generalized = dchisq(b,2)*.gseg_integrate(Vectorize(integrand0),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
       }else{
         pval.generalized = 1
       }
@@ -643,15 +643,13 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
   x1 = sum(deg*(deg-1))
   x2 = sum(deg*(deg-1)*(deg-2))
   x3 = 0
-  for (i in 1:nrow(E)){
-    x3 = x3 + (deg[E[i,1]]-1)*(deg[E[i,2]]-1)
-  }
+  x3 = .gseg_graph_x3(deg,E)
   x4 = sum(deg*(deg-1)*(sumE-deg))
   x5 = 0
-  for (i in 1:nrow(E)){
-    j = E[i,1]
-    k = E[i,2]
-    x5 = x5 + length(which(!is.na(match(Ebynode[[j]], Ebynode[[k]]))))
+  x5 = .gseg_native_x5(n,E)
+  if(is.null(x5)) {
+    x5 = 0
+    for(i in seq_len(nrow(E))) x5 = x5+length(which(!is.na(match(Ebynode[[E[i,1]]],Ebynode[[E[i,2]]]))))
   }
 
   if (length(which(!is.na(match(c("o","ori","original","all"), statistics))))>0){
@@ -669,7 +667,7 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
       r = (mu^3 + 3*mu*sig^2 - ER3)/sig^3
       theta_b = rep(0,n)
       pos = which(1+2*r*b>0)
-      theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
+      theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
       ratio = exp((b-theta_b)^2/2 + r*theta_b^3/6)/sqrt(1+r*theta_b)
       a = x*Nu(sqrt(2*b^2*x)) * ratio
       nn = n-length(pos)
@@ -680,7 +678,7 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
           x = rho_one(n,s,sumE,sumEisq)
           x*Nu(sqrt(2*b^2*x))
         }
-        pval.ori = dnorm(b)*b*integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+        pval.ori = dnorm(b)*b*.gseg_integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
         output$ori = min(pval.ori,1)
       }else{
         if (nn>=(lower-1)+(n-upper)){
@@ -699,7 +697,7 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
           a[s]
         }
         
-        result = try(dnorm(b)*b*integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
+        result = try(dnorm(b)*b*.gseg_integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
         if (is.numeric(result)){
           output$ori = min(result,1)
         }else{
@@ -709,7 +707,7 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
             x = rho_one(n,s,sumE,sumEisq)
             x*Nu(sqrt(2*b^2*x))
           }
-          pval.ori = dnorm(b)*b*integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          pval.ori = dnorm(b)*b*.gseg_integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
           output$ori = min(pval.ori,1)
         }
       }
@@ -775,7 +773,7 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
             x = rho_one_Rw(n,t)
             x*Nu(sqrt(2*b^2*x))
           }
-          pval.weighted = dnorm(b)*b*integrate(integrandW, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          pval.weighted = dnorm(b)*b*.gseg_integrate(integrandW, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
         }else{
           pval.weighted = 1
         }
@@ -816,15 +814,15 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
             x2 = rho_one_Rw(n,t)
             x2*Nu(sqrt(2*b^2*x2))
           }
-          pval_u1 = 2*dnorm(b)*b*integrate(integrand1, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-          pval_u2 = dnorm(b)*b*integrate(integrand2, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-          pval.max.type = as.numeric(1-(1-min(pval_u1,1))*(1-min(pval_u2,1)))
+          pval_u1 = 2*dnorm(b)*b*.gseg_integrate(integrand1, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          pval_u2 = dnorm(b)*b*.gseg_integrate(integrand2, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          pval.max.type = as.numeric(.gseg_combine_tails(pval_u1, pval_u2))
         }else{
           pval.max.type = 1
         }
         output$max.type = pval.max.type
       }else{
-        output$max.type = 1-(1-min(result.u1,1))*(1-min(result.u2,1))
+        output$max.type = .gseg_combine_tails(result.u1, result.u2)
       }
     }
   }
@@ -838,8 +836,8 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
         x2 = rho_one_Rw(n,t)
         2*(x1*cos(w)^2+x2*sin(w)^2)*b*Nu(sqrt(2*b*(x1*cos(w)^2+x2*sin(w)^2)))/(2*pi)
       }
-      integrand0 = function(t) {integrate(integrandG,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
-      pval.generalized = dchisq(b,2)*integrate(Vectorize(integrand0),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
+      integrand0 = function(t) {.gseg_integrate(integrandG,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
+      pval.generalized = dchisq(b,2)*.gseg_integrate(Vectorize(integrand0),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
     }else{
       pval.generalized = 1
     }
@@ -862,7 +860,7 @@ pval1_sub_1 = function(n,b,r,x,lower,upper){
   }
   theta_b = rep(0,n-1)
   pos = which(1+2*r*b>0)
-  theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
+  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
   for(i in seq_along(theta_b[pos])){
     if (is.na(theta_b[pos][i])==TRUE){
       theta_b[pos][i]=0
@@ -900,7 +898,7 @@ pval1_sub_1 = function(n,b,r,x,lower,upper){
   integrand = function(s){
     a[s]
   }
-  result = try(2*dnorm(b)*b*integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
+  result = try(2*dnorm(b)*b*.gseg_integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
   return(result)
 
 }
@@ -911,7 +909,7 @@ pval1_sub_2 = function(n,b,r,x,lower,upper){
   }
   theta_b = rep(0,n-1)
   pos = which(1+2*r*b>0)
-  theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
+  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
   ratio = exp((b-theta_b)^2/2 + r*theta_b^3/6)/sqrt(1+r*theta_b)
   a = x*Nu(sqrt(2*b^2*x)) * ratio
   a_na = which(is.na(a)==TRUE )
@@ -935,7 +933,7 @@ pval1_sub_2 = function(n,b,r,x,lower,upper){
   integrand = function(s){
     a[s]
   }
-  result = try(dnorm(b)*b*integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
+  result = try(dnorm(b)*b*.gseg_integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
   return(result)
 }
 
@@ -955,7 +953,7 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
           x = rho_one(n,s,sumE,sumEisq)
           (b^2*x*Nu(sqrt(2*b^2*x)))^2*(n-s)
         }
-        pval.ori = dnorm(b)/b*integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
+        pval.ori = dnorm(b)/b*.gseg_integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
       }else{
         pval.ori = 1
       }
@@ -976,7 +974,7 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
           x = rho_one_Rw(n,t)
           (b^2*x*Nu(sqrt(2*b^2*x)))^2*(n-t)
         }
-        pval.weighted = try(dnorm(b)/b*integrate(integrandW, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
+        pval.weighted = try(dnorm(b)/b*.gseg_integrate(integrandW, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
       }else{
         pval.weighted = 1
       }
@@ -993,9 +991,9 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
           x2 = rho_one_Rw(n,t)
           (b^2*x2*Nu(sqrt(2*b^2*x2)))^2*(n-t)
         }
-        pval_u1 = try(2*dnorm(b)/b*integrate(integrand1, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value,silent=T)
-        pval_u2 = try(dnorm(b)/b*integrate(integrand2, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value,silent=T)
-        pval.max.type = as.numeric(1-(1-min(pval_u1,1))*(1-min(pval_u2,1)))
+        pval_u1 = try(2*dnorm(b)/b*.gseg_integrate(integrand1, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value,silent=T)
+        pval_u2 = try(dnorm(b)/b*.gseg_integrate(integrand2, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value,silent=T)
+        pval.max.type = as.numeric(.gseg_combine_tails(pval_u1, pval_u2))
       }else{
         pval.max.type = 1
       }
@@ -1009,8 +1007,8 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
           x2 = rho_one_Rw(n,t)
           (n-t)*(2*(x1*cos(w)^2+x2*sin(w)^2) *b*Nu(sqrt(2*b*(x1*cos(w)^2+x2*sin(w)^2))))^2/(2*pi)
         }
-        integrand0 = function(t) {integrate(integrandG,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
-        pval.generalized = dchisq(b,2)*integrate(Vectorize(integrand0), l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
+        integrand0 = function(t) {.gseg_integrate(integrandG,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
+        pval.generalized = dchisq(b,2)*.gseg_integrate(Vectorize(integrand0), l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
       }else{
         pval.generalized = 1
       }
@@ -1048,7 +1046,7 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
       r = (mu^3 + 3*mu*sig^2 - ER3)/sig^3
       theta_b = rep(0,n)
       pos = which(1+2*r*b>0)
-      theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
+      theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
       ratio = exp((b-theta_b)^2/2 + r*theta_b^3/6)/sqrt(1+r*theta_b)
       a = (b^2*x*Nu(sqrt(2*b^2*x)))^2 * ratio
       nn = n-length(pos)
@@ -1061,7 +1059,7 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
           x = rho_one(n,s,sumE,sumEisq)
           (b^2*x*Nu(sqrt(2*b^2*x)))^2*(n-s)
         }
-        pval.ori = dnorm(b)/b*integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
+        pval.ori = dnorm(b)/b*.gseg_integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
         output$ori = min(pval.ori,1)
       } else {
         if (nn>=2*l0-1){
@@ -1079,7 +1077,7 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
         integrand = function(s){
           a[s]*(n-s)
         }
-        result = try(dnorm(b)/b*integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
+        result = try(dnorm(b)/b*.gseg_integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
         if (is.numeric(result)){
           output$ori = min(result,1)
         }else{
@@ -1089,7 +1087,7 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
             x = rho_one(n,s,sumE,sumEisq)
             (b^2*x*Nu(sqrt(2*b^2*x)))^2*(n-s)
           }
-          pval.ori = dnorm(b)/b*integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
+          pval.ori = dnorm(b)/b*.gseg_integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
           output$ori = min(pval.ori,1)
         }
       }
@@ -1158,7 +1156,7 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
             x = rho_one_Rw(n,t)
             (b^2*x*Nu(sqrt(2*b^2*x)))^2*(n-t)
           }
-          pval.weighted = try(dnorm(b)/b*integrate(integrandW, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
+          pval.weighted = try(dnorm(b)/b*.gseg_integrate(integrandW, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
         }else{
           pval.weighted = 1
         }
@@ -1203,15 +1201,15 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
             x2 = rho_one_Rw(n,t)
             (b^2*x2*Nu(sqrt(2*b^2*x2)))^2*(n-t)
           }
-          pval_u1 = try(2*dnorm(b)/b*integrate(integrand1, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value,silent=T)
-          pval_u2 = try(dnorm(b)/b*integrate(integrand2, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value,silent=T)
-          pval.max.type = as.numeric(1-(1-min(pval_u1,1))*(1-min(pval_u2,1)))
+          pval_u1 = try(2*dnorm(b)/b*.gseg_integrate(integrand1, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value,silent=T)
+          pval_u2 = try(dnorm(b)/b*.gseg_integrate(integrand2, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value,silent=T)
+          pval.max.type = as.numeric(.gseg_combine_tails(pval_u1, pval_u2))
         }else{
           pval.max.type = 1
         }
         output$max.type = pval.max.type
       }else{
-        output$max.type = 1-(1-min(result.u1,1))*(1-min(result.u2,1))
+        output$max.type = .gseg_combine_tails(result.u1, result.u2)
       }
     }
   }
@@ -1225,8 +1223,8 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
         x2 = rho_one_Rw(n,t)
         (n-t)*(2*(x1*cos(w)^2+x2*sin(w)^2) *b*Nu(sqrt(2*b*(x1*cos(w)^2+x2*sin(w)^2))))^2/(2*pi)
       }
-      integrand0 = function(t) {integrate(integrandG,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
-      pval.generalized = dchisq(b,2)*integrate(Vectorize(integrand0), l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
+      integrand0 = function(t) {.gseg_integrate(integrandG,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
+      pval.generalized = dchisq(b,2)*.gseg_integrate(Vectorize(integrand0), l0, l1, subdivisions=3000, stop.on.error=FALSE)$value
     }else{
       pval.generalized = 1
     }
@@ -1244,7 +1242,7 @@ pval2_sub_1 = function(n,b,r,x,l0,l1){
   }
   theta_b = rep(0,n-1)
   pos = which(1+2*r*b>0)
-  theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
+  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
   for(i in seq_along(theta_b[pos])){
     if (is.na(theta_b[pos][i])==TRUE){
       theta_b[pos][i]=0
@@ -1282,7 +1280,7 @@ pval2_sub_1 = function(n,b,r,x,l0,l1){
   integrand = function(s){
     a[s]*(n-s)   ## this is different from single change-point alternative
   }
-  result = try(2*dnorm(b)/b*integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)   ## this is different from single change-point alternative
+  result = try(2*dnorm(b)/b*.gseg_integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)   ## this is different from single change-point alternative
   return(result)
 
 }
@@ -1294,7 +1292,7 @@ pval2_sub_2 = function(n,b,r,x,l0,l1){
   }
   theta_b = rep(0,n-1)
   pos = which(1+2*r*b>0)
-  theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
+  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
   ratio = exp((b-theta_b)^2/2 + r*theta_b^3/6)/sqrt(1+r*theta_b)
 
   a = (b^2*x*Nu(sqrt(2*b^2*x)))^2 * ratio  ## this is different from single change-point
@@ -1319,7 +1317,7 @@ pval2_sub_2 = function(n,b,r,x,l0,l1){
   integrand = function(s){
     a[s]*(n-s)
   }
-  result = try(dnorm(b)/b*integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
+  result = try(dnorm(b)/b*.gseg_integrate(integrand, l0, l1, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
   return(result)
 }
 
@@ -1352,7 +1350,7 @@ permpval1 = function(n, Ebynode, scanZ, statistics="all", B=100, n0=ceiling(0.05
       Z.max.type[b,] = gcpstar$max.type$M
     }
     if (length(which(!is.na(match(c("g","generalized","all"), statistics))))>0){
-      Z.generalized[b,] = gcpstar$generalized$Z
+      Z.generalized[b,] = gcpstar$generalized$S
     }
   }
 
@@ -1365,8 +1363,8 @@ permpval1 = function(n, Ebynode, scanZ, statistics="all", B=100, n0=ceiling(0.05
       # n1 = n-2
     # }
     maxZ = apply(Z.ori[,n0:n1, drop = FALSE],1,max)
-    maxZs = sort(maxZ)
-    output$ori = list(pval=(1+sum(maxZs>=scanZ$ori$Zmax))/(B+1), curve=cbind(maxZs,p), maxZs=maxZs, Z=Z.ori)
+    maxZs = sort(.gseg_finite_maxima(maxZ))
+    output$ori = list(pval=(1+sum(maxZs>=scanZ$ori$Zmax))/(B+1), curve=.gseg_perm_curve(maxZs, "maxZs"), maxZs=maxZs, Z=Z.ori)
   }
   
 
@@ -1379,18 +1377,18 @@ permpval1 = function(n, Ebynode, scanZ, statistics="all", B=100, n0=ceiling(0.05
   if (length(which(!is.na(match(c("w","weighted","all"), statistics))))>0){
     
     maxZ = apply(Z.weighted[,n0:n1, drop = FALSE],1,max)
-    maxZs = sort(maxZ)
-    output$weighted = list(pval=(1+sum(maxZs>=scanZ$weighted$Zmax))/(B+1), curve=cbind(maxZs,p), maxZs=maxZs, Z=Z.weighted)
+    maxZs = sort(.gseg_finite_maxima(maxZ))
+    output$weighted = list(pval=(1+sum(maxZs>=scanZ$weighted$Zmax))/(B+1), curve=.gseg_perm_curve(maxZs, "maxZs"), maxZs=maxZs, Z=Z.weighted)
   }
   if (length(which(!is.na(match(c("m","max","all"), statistics))))>0){
     maxZ = apply(Z.max.type[,n0:n1, drop = FALSE],1,max)
-    maxZs = sort(maxZ)
-    output$max.type = list(pval=(1+sum(maxZs>=scanZ$max.type$Zmax))/(B+1), curve=cbind(maxZs,p), maxZs=maxZs, Z=Z.max.type)
+    maxZs = sort(.gseg_finite_maxima(maxZ))
+    output$max.type = list(pval=(1+sum(maxZs>=scanZ$max.type$Zmax))/(B+1), curve=.gseg_perm_curve(maxZs, "maxZs"), maxZs=maxZs, Z=Z.max.type)
   }
   if (length(which(!is.na(match(c("g","generalized","all"), statistics))))>0){
     maxZ = apply(Z.generalized[,n0:n1, drop = FALSE],1,max)
-    maxZs = sort(maxZ)
-    output$generalized = list(pval=(1+sum(maxZs>=scanZ$generalized$Zmax))/(B+1), curve=cbind(maxZs,p), maxZs=maxZs, Z=Z.generalized)
+    maxZs = sort(.gseg_finite_maxima(maxZ))
+    output$generalized = list(pval=(1+sum(maxZs>=scanZ$generalized$Zmax))/(B+1), curve=.gseg_perm_curve(maxZs, "maxZs"), maxZs=maxZs, Z=Z.generalized)
   }
 
   return(output)
@@ -1432,8 +1430,8 @@ permpval2 = function(n,Ebynode,scanZ,statistics="all", B=100,l0=ceiling(0.05*n),
   p=(rev(seq_len(B))+1)/(B+1)
 
   if (length(which(!is.na(match(c("o","ori","original","all"), statistics))))>0){
-    maxZs = sort(Zmax.ori)
-    output$ori = list(pval=(1+sum(maxZs>=scanZ$ori$Zmax))/(B+1), curve=cbind(maxZs,p), maxZs=maxZs, Zmax=Zmax.ori)
+    maxZs = sort(.gseg_finite_maxima(Zmax.ori))
+    output$ori = list(pval=(1+sum(maxZs>=scanZ$ori$Zmax))/(B+1), curve=.gseg_perm_curve(maxZs, "maxZs"), maxZs=maxZs, Zmax=Zmax.ori)
   }
   # if (length(which(!is.na(match(c("w","weighted","m","max","g","generalized","all"),statistics))))>0){
     # if(l0<=1){
@@ -1444,16 +1442,16 @@ permpval2 = function(n,Ebynode,scanZ,statistics="all", B=100,l0=ceiling(0.05*n),
     # }
   # }
   if (length(which(!is.na(match(c("w","weighted","all"), statistics))))>0){
-    maxZs = sort(Zmax.weighted)
-    output$weighted = list(pval=(1+sum(maxZs>=scanZ$weighted$Zmax))/(B+1), curve=cbind(maxZs,p), maxZs=maxZs, Zmax=Zmax.weighted)
+    maxZs = sort(.gseg_finite_maxima(Zmax.weighted))
+    output$weighted = list(pval=(1+sum(maxZs>=scanZ$weighted$Zmax))/(B+1), curve=.gseg_perm_curve(maxZs, "maxZs"), maxZs=maxZs, Zmax=Zmax.weighted)
   }
   if (length(which(!is.na(match(c("m","max","all"), statistics))))>0){
-    maxZs = sort(Zmax.max.type)
-    output$max.type = list(pval=(1+sum(maxZs>=scanZ$max.type$Zmax))/(B+1), curve=cbind(maxZs,p), maxZs=maxZs, Zmax=Zmax.max.type)
+    maxZs = sort(.gseg_finite_maxima(Zmax.max.type))
+    output$max.type = list(pval=(1+sum(maxZs>=scanZ$max.type$Zmax))/(B+1), curve=.gseg_perm_curve(maxZs, "maxZs"), maxZs=maxZs, Zmax=Zmax.max.type)
   }
   if (length(which(!is.na(match(c("g","generalized","all"), statistics))))>0){
-    maxZs = sort(Zmax.generalized)
-    output$generalized = list(pval=(1+sum(maxZs>=scanZ$generalized$Zmax))/(B+1), curve=cbind(maxZs,p), maxZs=maxZs, Zmax=Zmax.generalized)
+    maxZs = sort(.gseg_finite_maxima(Zmax.generalized))
+    output$generalized = list(pval=(1+sum(maxZs>=scanZ$generalized$Zmax))/(B+1), curve=.gseg_perm_curve(maxZs, "maxZs"), maxZs=maxZs, Zmax=Zmax.generalized)
   }
 
   return(output)

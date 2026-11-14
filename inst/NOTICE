@@ -1,0 +1,4 @@
+Native-kernel provenance, GPL (>= 2)
+MST selection semantics follow ade4 1.7-22 src/tests.c MSTgraph; upstream ade4 authors and contributors. Reference source: https://cran.r-project.org/src/contrib/Archive/ade4/ade4_1.7-22.tar.gz . The gSeg implementation preserves comparisons, active-order tie policy and layer removal, with revised storage and minimum reduction.
+Euclidean calculation follows R Core Team, R4.4.0 src/library/stats/src/distance.c, https://svn.r-project.org/R/tags/R-4-4-0/src/library/stats/src/distance.c . The finite-data implementation batches independent pairs and preserves coordinate operation order with contraction disabled.
+Sparse graph counting computes the existing exact shared-neighbour count through degree-oriented adjacency. It adds no new test statistic.

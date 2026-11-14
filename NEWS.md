@@ -1,3 +1,63 @@
+### Input validation consistency
+
+- Matrix dissimilarities now require at least three observations, matching raw-data and `dist` inputs to `gseg_kmst()`.
+
+## Graph robustness and repeated-scan boundaries
+
+- Use an iterative component search for NNL graphs, avoiding recursion-stack exhaustion on long components.
+- Exclude used MST edges with infinity instead of a fixed finite distance; reject disconnected residual graphs explicitly. Normal-scale tie ordering is retained.
+- Align repeated-observation OET/WET nonpositive-threshold analytic output with ordinary scans, returning the conservative value 1 independently for average and union components.
+
+## Numerical stability fixes
+
+- Evaluate the skewness-correction root with its continuous zero-skewness limit, avoiding cancellation near zero.
+- Combine MET tails without subtracting from one, preserving very small positive p-values.
+- Apply both fixes to ordinary and repeated-observation single-change and interval scans. Defaults, graphs, scan statistics, permutations and extrapolation domains are unchanged.
+
+## Integrated performance implementation
+
+- Preserve default methods and outputs with native MST/distance and exact graph-count kernels; batch single-change adjacency assembly.
+- Keep scalar accumulation for x3 when an exact-in-double bound cannot be established.
+
+# gSeg 1.2
+
+- Fixed the documented `statistics = "max"` alias in analytic scan calls.
+- Reject `dist` objects in `x` instead of silently recomputing distances
+  between distance-matrix rows; use `dissimilarity = ...`.
+- Reject non-converged analytic quadrature and invalid analytic probability
+  outputs explicitly. Existing skew-correction fallbacks remain available.
+- Repeated-observation interval MET no longer silently substitutes zero for
+  an undefined weighted component.
+
+- Validate that requested k-MST layers produce exactly k*(N-1) distinct
+  edges; fail explicitly if the underlying constructor reuses exhausted edges.
+
+- Fixed changed-interval maximizer indexing and restricted all tied maximizers
+  to the requested interval-length range, including repeated-observation scans.
+- Corrected returned GET permutation paths and tied permutation tail curves.
+- Reject undefined candidate scan locations instead of silently dropping
+  non-finite permutation maxima, which could yield spuriously small p-values.
+- Reject zero-width ranges for analytic scan approximations; permutation
+  calibration remains available for those restricted ranges.
+- NNL construction excludes self-links under zero-distance ties, validates
+  inputs/layer counts, and detects exhausted layers.
+
+- Fixed mixed named/positional legacy graph calls, including `gseg1(n, E=E)`
+  and `gseg1(n=n, E)` (and the corresponding `gseg2` calls).
+- Supplying `k` with an explicit graph now raises an error rather than silently
+  ignoring it. Set `k` only when constructing a graph from data/dissimilarities.
+- Reworked package documentation and examples around the main data-level calls,
+  with explicit graph entry points and a migration guide.
+
+- `gseg1()` and `gseg2()` now accept observations or dissimilarities directly.
+- Added explicit `gseg1_graph()` and `gseg2_graph()` functions for supplied
+  similarity graphs.
+- Calls using the earlier `gseg1(n, E, ...)` and `gseg2(n, E, ...)` forms
+  remain supported.
+- `gseg1_data()` and `gseg2_data()` remain available as aliases.
+- The main data-level calls construct a k-MST with `k = floor(sqrt(N))` by
+  default and report MET.
+
 # gSeg 1.1
 
 - Added data-level `gseg1_data()` and `gseg2_data()` interfaces.

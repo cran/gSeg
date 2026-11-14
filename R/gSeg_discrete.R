@@ -5,7 +5,7 @@ gseg1_discrete = function(n, E, id, statistics="m", n0=0.05*n, n1=0.95*n, pval.a
     stop("`n` must be an integer at least 6.")
   }
   if (!is.numeric(id) || length(id) != n || any(is.na(id)) || any(!is.finite(id)) ||
-      any(id != as.integer(id)) || any(id < 1L) ||
+      any(id < 1L) || any(id > n) || any(id != floor(id)) ||
       !setequal(unique(id), seq_len(max(id)))) {
     stop("`id` must contain one positive integer category index per observation.")
   }
@@ -43,14 +43,18 @@ gseg1_discrete = function(n, E, id, statistics="m", n0=0.05*n, n1=0.95*n, pval.a
   if (n0 < 2L) n0 = 2L
   if (n1 > n - 2L) n1 = n - 2L
   if (n0 > n1) stop("The scan range defined by `n0` and `n1` is empty.")
+  if (pval.appr && n0 == n1) {
+    stop("The analytic scan approximation requires n0 < n1; set `pval.appr = FALSE` and use `pval.perm = TRUE` for this restricted range.")
+  }
   
   r1$scanZ = gcp1bynode_discrete(n, E, id, statistics, n0, n1)
+  .gseg_check_single_paths(r1$scanZ, n0, n1, repeated = TRUE)
   scan.maxima = unlist(lapply(r1$scanZ, function(x) x[grepl("_max$", names(x))]), use.names = FALSE)
   if (!length(scan.maxima) || any(!is.finite(scan.maxima))) {
     stop("The requested scan statistic is degenerate for this graph; use a less dense similarity graph.")
   }
   if (pval.appr==TRUE){
-    mypval1_discrete = pval1_discrete(n, E, id, r1$scanZ, statistics, skew.corr, n0, n1)
+    mypval1_discrete = .gseg_analytic(function() pval1_discrete(n, E, id, r1$scanZ, statistics, skew.corr, n0, n1))
     r1$pval.appr = mypval1_discrete
   }
   if (pval.perm==TRUE){
@@ -152,7 +156,7 @@ gseg2_discrete = function(n, E, id, statistics="m", l0=0.05*n, l1=0.95*n, pval.a
     stop("`n` must be an integer at least 6.")
   }
   if (!is.numeric(id) || length(id) != n || any(is.na(id)) || any(!is.finite(id)) ||
-      any(id != as.integer(id)) || any(id < 1L) ||
+      any(id < 1L) || any(id > n) || any(id != floor(id)) ||
       !setequal(unique(id), seq_len(max(id)))) {
     stop("`id` must contain one positive integer category index per observation.")
   }
@@ -190,6 +194,9 @@ gseg2_discrete = function(n, E, id, statistics="m", l0=0.05*n, l1=0.95*n, pval.a
   if (l0 < 2L) l0 = 2L
   if (l1 > n - 2L) l1 = n - 2L
   if (l0 > l1) stop("The interval-length range defined by `l0` and `l1` is empty.")
+  if (pval.appr && l0 == l1) {
+    stop("The analytic scan approximation requires l0 < l1; set `pval.appr = FALSE` and use `pval.perm = TRUE` for this restricted range.")
+  }
   
   r1$scanZ = gcp2bynode_discrete(n, E, id, statistics, l0, l1)
   scan.maxima = unlist(lapply(r1$scanZ, function(x) x[grepl("_max$", names(x))]), use.names = FALSE)
@@ -197,7 +204,7 @@ gseg2_discrete = function(n, E, id, statistics="m", l0=0.05*n, l1=0.95*n, pval.a
     stop("The requested scan statistic is degenerate for this graph; use a less dense similarity graph.")
   }
   if (pval.appr==TRUE){
-    mypval1_discrete = pval2_discrete(n, E, id, r1$scanZ, statistics, skew.corr, l0, l1)
+    mypval1_discrete = .gseg_analytic(function() pval2_discrete(n, E, id, r1$scanZ, statistics, skew.corr, l0, l1))
     r1$pval.appr = mypval1_discrete
   }
   if (pval.perm==TRUE){
@@ -598,14 +605,12 @@ gcp2bynode_discrete = function(n, E, id, statistics="all", l0=ceiling(0.05*n), l
     Zv_a = rep(0,n*n)
     Zv_a[ids] = -(Ro_av[ids]-muo_a[difv[ids]])/sqrt(varo_a[difv[ids]])
     Zo_a_max = max(Zv_a[ids2])
-    tauhat_a0 = which(Zv_a == Zo_a_max)
-    tauhat_a = c(floor(tauhat_a0/n)+1, (tauhat_a0-1)%%n+1)
+    tauhat_a = .gseg_interval_argmax(Zv_a, ids2, n)
     Ro_uv = as.vector(t(Ro_u))
     Zv_u = rep(0,n*n)
     Zv_u[ids] = -(Ro_uv[ids]-muo_u[difv[ids]])/sqrt(varo_u[difv[ids]])
     Zo_u_max = max(Zv_u[ids2])
-    tauhat_u0 = which(Zv_u == Zo_u_max)
-    tauhat_u = c(floor(tauhat_u0/n)+1, (tauhat_u0-1)%%n+1)
+    tauhat_u = .gseg_interval_argmax(Zv_u, ids2, n)
     
     ori = list(tauhat_a=tauhat_a, Zo_a_max=Zo_a_max, Zo_a=matrix(Zv_a,n,byrow=T), Ro_a=Ro_a,
                tauhat_u=tauhat_u, Zo_u_max=Zo_u_max, Zo_u=matrix(Zv_u,n,byrow=T), Ro_u=Ro_u)
@@ -631,11 +636,9 @@ gcp2bynode_discrete = function(n, E, id, statistics="all", l0=ceiling(0.05*n), l
     
     if (length(which(!is.na(match(c("w","weighted","all"),statistics))))>0) {
       Zw_a_max = max(Zwv_a[ids2])
-      tauhat_a0 = which(Zwv_a == Zw_a_max)
-      tauhat_a = c(floor(tauhat_a0/n)+1, (tauhat_a0-1)%%n+1)
+      tauhat_a = .gseg_interval_argmax(Zwv_a, ids2, n)
       Zw_u_max = max(Zwv_u[ids2])
-      tauhat_u0 = which(Zwv_u == Zw_u_max)
-      tauhat_u = c(floor(tauhat_u0/n)+1, (tauhat_u0-1)%%n+1)
+      tauhat_u = .gseg_interval_argmax(Zwv_u, ids2, n)
       
       weighted = list(tauhat_a=tauhat_a, Zw_a_max=Zw_a_max, Zw_a=matrix(Zwv_a,n,byrow=T), Rw_a=Rw_a,
                       tauhat_u=tauhat_u, Zw_u_max=Zw_u_max, Zw_u=matrix(Zwv_u,n,byrow=T), Rw_u=Rw_u)
@@ -654,13 +657,11 @@ gcp2bynode_discrete = function(n, E, id, statistics="all", l0=ceiling(0.05*n), l
         Sv_a = rep(0, n*n)
         Sv_a[ids] = (Zwv_a[ids])^2 + (Zdv_a[ids])^2
         S_a_max = max(Sv_a[ids2])
-        tauhat_a0 = which(Sv_a == S_a_max)
-        tauhat_a = c(floor(tauhat_a0/n)+1, (tauhat_a0-1)%%n+1)
+        tauhat_a = .gseg_interval_argmax(Sv_a, ids2, n)
         Sv_u = rep(0, n*n)
         Sv_u[ids] = (Zwv_u[ids])^2 + (Zdv_u[ids])^2
         S_u_max = max(Sv_u[ids2])
-        tauhat_u0 = which(Sv_u == S_u_max)
-        tauhat_u = c(floor(tauhat_u0/n)+1, (tauhat_u0-1)%%n+1)
+        tauhat_u = .gseg_interval_argmax(Sv_u, ids2, n)
         
         generalized = list(tauhat_a=tauhat_a, S_a_max=S_a_max, S_a=matrix(Sv_a,n,byrow=T),
                            tauhat_u=tauhat_u, S_u_max=S_u_max, S_u=matrix(Sv_u,n,byrow=T))
@@ -668,26 +669,14 @@ gcp2bynode_discrete = function(n, E, id, statistics="all", l0=ceiling(0.05*n), l
       }
       
       if (length(which(!is.na(match(c("m","max","all"), statistics))))>0) {
-        for(i in seq_along(Zwv_a)){
-          if(Zwv_a[i]=='NaN'){
-            Zwv_a[i]=0
-          }
-        }
         M_a = rep(0,n*n)
         M_a[ids] = apply(cbind(abs(Zdv_a[ids]),Zwv_a[ids]), 1, max)
         M_a_max = max(M_a[ids2])
-        tauhat_a0 = which(M_a == M_a_max)
-        tauhat_a = c(floor(tauhat_a0/n)+1, (tauhat_a0-1)%%n+1)
-        for(i in seq_along(Zwv_u)){
-          if(Zwv_u[i]=='NaN'){
-            Zwv_u[i]=0
-          }
-        }
+        tauhat_a = .gseg_interval_argmax(M_a, ids2, n)
         M_u = rep(0,n*n)
         M_u[ids] = apply(cbind(abs(Zdv_u[ids]),Zwv_u[ids]), 1, max)
         M_u_max = max(M_u[ids2])
-        tauhat_u0 = which(M_u == M_u_max)
-        tauhat_u = c(floor(tauhat_u0/n)+1, (tauhat_u0-1)%%n+1)
+        tauhat_u = .gseg_interval_argmax(M_u, ids2, n)
         
         max.type = list(tauhat_a=tauhat_a, M_a_max=M_a_max, M_a=matrix(M_a,n,byrow=TRUE), 
                         tauhat_u=tauhat_u, M_u_max=M_u_max, M_u=matrix(M_u,n,byrow=TRUE))
@@ -811,35 +800,35 @@ permpval1_discrete = function(n, E, id, scanZ, statistics="all", B=100, n0=ceili
   # Z : B Z(t) (B x n matrix)
   if (length(which(!is.na(match(c("o","ori","original","all"), statistics))))>0){
     maxZ_a = apply(Z.ori_a[,n0:n1, drop = FALSE],1,max)
-    maxZs_a = sort(maxZ_a)
-    output$ori_a = list(pval=(1+sum(maxZs_a>=scanZ$ori$Zo_a_max))/(B+1), curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Z.ori_a)
+    maxZs_a = sort(.gseg_finite_maxima(maxZ_a))
+    output$ori_a = list(pval=(1+sum(maxZs_a>=scanZ$ori$Zo_a_max))/(B+1), curve=.gseg_perm_curve(maxZs_a, "maxZs_a"), maxZs_a=maxZs_a, Z=Z.ori_a)
     maxZ_u = apply(Z.ori_u[,n0:n1, drop = FALSE],1,max)
-    maxZs_u = sort(maxZ_u)
-    output$ori_u = list(pval=(1+sum(maxZs_u>=scanZ$ori$Zo_u_max))/(B+1), curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Z.ori_u)
+    maxZs_u = sort(.gseg_finite_maxima(maxZ_u))
+    output$ori_u = list(pval=(1+sum(maxZs_u>=scanZ$ori$Zo_u_max))/(B+1), curve=.gseg_perm_curve(maxZs_u, "maxZs_u"), maxZs_u=maxZs_u, Z=Z.ori_u)
   }
   if (length(which(!is.na(match(c("w","weighted","all"), statistics))))>0){
     maxZ_a = apply(Z.weighted_a[,n0:n1, drop = FALSE],1,max)
-    maxZs_a = sort(maxZ_a)
-    output$weighted_a = list(pval=(1+sum(maxZs_a>=scanZ$weighted$Zw_a_max))/(B+1), curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Z.weighted_a) 
+    maxZs_a = sort(.gseg_finite_maxima(maxZ_a))
+    output$weighted_a = list(pval=(1+sum(maxZs_a>=scanZ$weighted$Zw_a_max))/(B+1), curve=.gseg_perm_curve(maxZs_a, "maxZs_a"), maxZs_a=maxZs_a, Z=Z.weighted_a) 
     maxZ_u = apply(Z.weighted_u[,n0:n1, drop = FALSE],1,max)
-    maxZs_u = sort(maxZ_u)
-    output$weighted_u = list(pval=(1+sum(maxZs_u>=scanZ$weighted$Zw_u_max))/(B+1), curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Z.weighted_u)
+    maxZs_u = sort(.gseg_finite_maxima(maxZ_u))
+    output$weighted_u = list(pval=(1+sum(maxZs_u>=scanZ$weighted$Zw_u_max))/(B+1), curve=.gseg_perm_curve(maxZs_u, "maxZs_u"), maxZs_u=maxZs_u, Z=Z.weighted_u)
   }
   if (length(which(!is.na(match(c("m","max","all"), statistics))))>0){
     maxZ_a = apply(Z.max.type_a[,n0:n1, drop = FALSE],1,max)
-    maxZs_a = sort(maxZ_a)
-    output$max.type_a = list(pval=(1+sum(maxZs_a>=scanZ$max.type$M_a_max))/(B+1), curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Z.max.type_a)
+    maxZs_a = sort(.gseg_finite_maxima(maxZ_a))
+    output$max.type_a = list(pval=(1+sum(maxZs_a>=scanZ$max.type$M_a_max))/(B+1), curve=.gseg_perm_curve(maxZs_a, "maxZs_a"), maxZs_a=maxZs_a, Z=Z.max.type_a)
     maxZ_u = apply(Z.max.type_u[,n0:n1, drop = FALSE],1,max)
-    maxZs_u = sort(maxZ_u)
-    output$max.type_u = list(pval=(1+sum(maxZs_u>=scanZ$max.type$M_u_max))/(B+1), curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Z.max.type_u)
+    maxZs_u = sort(.gseg_finite_maxima(maxZ_u))
+    output$max.type_u = list(pval=(1+sum(maxZs_u>=scanZ$max.type$M_u_max))/(B+1), curve=.gseg_perm_curve(maxZs_u, "maxZs_u"), maxZs_u=maxZs_u, Z=Z.max.type_u)
   }
   if (length(which(!is.na(match(c("g","generalized","all"), statistics))))>0){
     maxZ_a = apply(Z.generalized_a[,n0:n1, drop = FALSE],1,max)
-    maxZs_a = sort(maxZ_a)
-    output$generalized_a = list(pval=(1+sum(maxZs_a>=scanZ$generalized$S_a_max))/(B+1), curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Z.generalized_a)
+    maxZs_a = sort(.gseg_finite_maxima(maxZ_a))
+    output$generalized_a = list(pval=(1+sum(maxZs_a>=scanZ$generalized$S_a_max))/(B+1), curve=.gseg_perm_curve(maxZs_a, "maxZs_a"), maxZs_a=maxZs_a, Z=Z.generalized_a)
     maxZ_u = apply(Z.generalized_u[,n0:n1, drop = FALSE],1,max)
-    maxZs_u = sort(maxZ_u)
-    output$generalized_u = list(pval=(1+sum(maxZs_u>=scanZ$generalized$S_u_max))/(B+1), curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Z.generalized_u)
+    maxZs_u = sort(.gseg_finite_maxima(maxZ_u))
+    output$generalized_u = list(pval=(1+sum(maxZs_u>=scanZ$generalized$S_u_max))/(B+1), curve=.gseg_perm_curve(maxZs_u, "maxZs_u"), maxZs_u=maxZs_u, Z=Z.generalized_u)
   }
   
   return(output)
@@ -885,11 +874,11 @@ permpval2_discrete = function(n, E, id, scanZ, statistics="all", B=100, l0=ceili
   # Z : B Z(t) (B x n matrix)
   if (length(which(!is.na(match(c("o","ori","original","all"), statistics))))>0){
     maxZ_a = Zmax.ori_a
-    maxZs_a = sort(maxZ_a)
-    output$ori_a = list(pval=(1+sum(maxZs_a>=scanZ$ori$Zo_a_max))/(B+1), curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Zmax.ori_a)
+    maxZs_a = sort(.gseg_finite_maxima(maxZ_a))
+    output$ori_a = list(pval=(1+sum(maxZs_a>=scanZ$ori$Zo_a_max))/(B+1), curve=.gseg_perm_curve(maxZs_a, "maxZs_a"), maxZs_a=maxZs_a, Z=Zmax.ori_a)
     maxZ_u = Zmax.ori_u
-    maxZs_u = sort(maxZ_u)
-    output$ori_u = list(pval=(1+sum(maxZs_u>=scanZ$ori$Zo_u_max))/(B+1), curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Zmax.ori_u)
+    maxZs_u = sort(.gseg_finite_maxima(maxZ_u))
+    output$ori_u = list(pval=(1+sum(maxZs_u>=scanZ$ori$Zo_u_max))/(B+1), curve=.gseg_perm_curve(maxZs_u, "maxZs_u"), maxZs_u=maxZs_u, Z=Zmax.ori_u)
   }
   if (length(which(!is.na(match(c("w","weighted","m","max","g","generalized","all"),statistics))))>0){
     if(l0<=1){
@@ -901,27 +890,27 @@ permpval2_discrete = function(n, E, id, scanZ, statistics="all", B=100, l0=ceili
   }
   if (length(which(!is.na(match(c("w","weighted","all"), statistics))))>0){
     maxZ_a = Zmax.weighted_a
-    maxZs_a = sort(maxZ_a)
-    output$weighted_a = list(pval=(1+sum(maxZs_a>=scanZ$weighted$Zw_a_max))/(B+1), curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Zmax.weighted_a) 
+    maxZs_a = sort(.gseg_finite_maxima(maxZ_a))
+    output$weighted_a = list(pval=(1+sum(maxZs_a>=scanZ$weighted$Zw_a_max))/(B+1), curve=.gseg_perm_curve(maxZs_a, "maxZs_a"), maxZs_a=maxZs_a, Z=Zmax.weighted_a) 
     maxZ_u = Zmax.weighted_u
-    maxZs_u = sort(maxZ_u)
-    output$weighted_u = list(pval=(1+sum(maxZs_u>=scanZ$weighted$Zw_u_max))/(B+1), curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Zmax.weighted_u)
+    maxZs_u = sort(.gseg_finite_maxima(maxZ_u))
+    output$weighted_u = list(pval=(1+sum(maxZs_u>=scanZ$weighted$Zw_u_max))/(B+1), curve=.gseg_perm_curve(maxZs_u, "maxZs_u"), maxZs_u=maxZs_u, Z=Zmax.weighted_u)
   }
   if (length(which(!is.na(match(c("m","max","all"), statistics))))>0){
     maxZ_a = Zmax.max.type_a
-    maxZs_a = sort(maxZ_a)
-    output$max.type_a = list(pval=(1+sum(maxZs_a>=scanZ$max.type$M_a_max))/(B+1), curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Zmax.max.type_a)
+    maxZs_a = sort(.gseg_finite_maxima(maxZ_a))
+    output$max.type_a = list(pval=(1+sum(maxZs_a>=scanZ$max.type$M_a_max))/(B+1), curve=.gseg_perm_curve(maxZs_a, "maxZs_a"), maxZs_a=maxZs_a, Z=Zmax.max.type_a)
     maxZ_u = Zmax.max.type_u
-    maxZs_u = sort(maxZ_u)
-    output$max.type_u = list(pval=(1+sum(maxZs_u>=scanZ$max.type$M_u_max))/(B+1), curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Zmax.max.type_u)
+    maxZs_u = sort(.gseg_finite_maxima(maxZ_u))
+    output$max.type_u = list(pval=(1+sum(maxZs_u>=scanZ$max.type$M_u_max))/(B+1), curve=.gseg_perm_curve(maxZs_u, "maxZs_u"), maxZs_u=maxZs_u, Z=Zmax.max.type_u)
   }
   if (length(which(!is.na(match(c("g","generalized","all"), statistics))))>0){
     maxZ_a = Zmax.generalized_a
-    maxZs_a = sort(maxZ_a)
-    output$generalized_a = list(pval=(1+sum(maxZs_a>=scanZ$generalized$S_a_max))/(B+1), curve=cbind(maxZs_a,p), maxZs_a=maxZs_a, Z=Zmax.generalized_a)
+    maxZs_a = sort(.gseg_finite_maxima(maxZ_a))
+    output$generalized_a = list(pval=(1+sum(maxZs_a>=scanZ$generalized$S_a_max))/(B+1), curve=.gseg_perm_curve(maxZs_a, "maxZs_a"), maxZs_a=maxZs_a, Z=Zmax.generalized_a)
     maxZ_u = Zmax.generalized_u
-    maxZs_u = sort(maxZ_u)
-    output$generalized_u = list(pval=(1+sum(maxZs_u>=scanZ$generalized$S_u_max))/(B+1), curve=cbind(maxZs_u,p), maxZs_u=maxZs_u, Z=Zmax.generalized_u)
+    maxZs_u = sort(.gseg_finite_maxima(maxZ_u))
+    output$generalized_u = list(pval=(1+sum(maxZs_u>=scanZ$generalized$S_u_max))/(B+1), curve=.gseg_perm_curve(maxZs_u, "maxZs_u"), maxZs_u=maxZs_u, Z=Zmax.generalized_u)
   }
   
   return(output)
@@ -1004,8 +993,8 @@ pval1_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
         c1 = rho_one_discrete(n,t,one_u,two_u,three_u)
         c1*Nu(b_u*sqrt(2*c1))
       }
-      pval.ori_a = b_a*dnorm(b_a)*integrate(integrando_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-      pval.ori_u = b_u*dnorm(b_u)*integrate(integrando_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+      pval.ori_a = if (b_a <= 0) 1 else b_a*dnorm(b_a)*.gseg_integrate(integrando_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+      pval.ori_u = if (b_u <= 0) 1 else b_u*dnorm(b_u)*.gseg_integrate(integrando_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
       output$ori_a = min(pval.ori_a,1)
       output$ori_u = min(pval.ori_u,1)
     }
@@ -1028,8 +1017,8 @@ pval1_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
         c1 = rho_w(n, t)
         c1*Nu(b_u*sqrt(2*c1))
       }
-      pval.weighted_a = b_a*dnorm(b_a)*integrate(integrandW_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-      pval.weighted_u = b_u*dnorm(b_u)*integrate(integrandW_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+      pval.weighted_a = if (b_a <= 0) 1 else b_a*dnorm(b_a)*.gseg_integrate(integrandW_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+      pval.weighted_u = if (b_u <= 0) 1 else b_u*dnorm(b_u)*.gseg_integrate(integrandW_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
       output$weighted_a = min(pval.weighted_a,1)
       output$weighted_u = min(pval.weighted_u,1)
     }
@@ -1052,12 +1041,12 @@ pval1_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
         c1 = rho_w(n, t)
         c1*Nu(b_u*sqrt(2*c1))
       }
-      pval_a1 = 2*b_a*dnorm(b_a)*integrate(integrandD_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-      pval_a2 = b_a*dnorm(b_a)*integrate(integrandW_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-      pval.max.type_a = as.numeric(1-(1-min(pval_a1,1))*(1-min(pval_a2,1)))
-      pval_u1 = 2*b_u*dnorm(b_u)*integrate(integrandD_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-      pval_u2 = b_u*dnorm(b_u)*integrate(integrandW_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-      pval.max.type_u = as.numeric(1-(1-min(pval_u1,1))*(1-min(pval_u2,1)))
+      pval_a1 = 2*b_a*dnorm(b_a)*.gseg_integrate(integrandD_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+      pval_a2 = b_a*dnorm(b_a)*.gseg_integrate(integrandW_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+      pval.max.type_a = as.numeric(.gseg_combine_tails(pval_a1, pval_a2))
+      pval_u1 = 2*b_u*dnorm(b_u)*.gseg_integrate(integrandD_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+      pval_u2 = b_u*dnorm(b_u)*.gseg_integrate(integrandW_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+      pval.max.type_u = as.numeric(.gseg_combine_tails(pval_u1, pval_u2))
       output$max.type_a = pval.max.type_a
       output$max.type_u = pval.max.type_u
     }
@@ -1069,15 +1058,15 @@ pval1_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
         x2 = rho_w(n,t)
         2*(x1*cos(w)^2+x2*sin(w)^2)*b_a*Nu(sqrt(2*b_a*(x1*cos(w)^2+x2*sin(w)^2)))/(2*pi)
       }
-      integrand0_a = function(t) {integrate(integrandG_a,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
+      integrand0_a = function(t) {.gseg_integrate(integrandG_a,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
       integrandG_u = function(t,w){
         x1 = rho_d(n,t)
         x2 = rho_w(n,t)
         2*(x1*cos(w)^2+x2*sin(w)^2)*b_u*Nu(sqrt(2*b_u*(x1*cos(w)^2+x2*sin(w)^2)))/(2*pi)
       }
-      integrand0_u = function(t) {integrate(integrandG_u,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
-      pval.generalized_a = dchisq(b_a,2)*integrate(Vectorize(integrand0_a),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
-      pval.generalized_u = dchisq(b_u,2)*integrate(Vectorize(integrand0_u),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
+      integrand0_u = function(t) {.gseg_integrate(integrandG_u,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
+      pval.generalized_a = dchisq(b_a,2)*.gseg_integrate(Vectorize(integrand0_a),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
+      pval.generalized_u = dchisq(b_u,2)*.gseg_integrate(Vectorize(integrand0_u),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
       output$generalized_a = min(pval.generalized_a,1)
       output$generalized_u = min(pval.generalized_u,1)
     }
@@ -1176,7 +1165,7 @@ pval1_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
           c1 = rho_one_discrete(n,t,one_a,two_a,three_a)
           c1*Nu(b_a*sqrt(2*c1))
         }
-        pval.ori_a = b_a*dnorm(b_a)*integrate(integrando_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+        pval.ori_a = if (b_a <= 0) 1 else b_a*dnorm(b_a)*.gseg_integrate(integrando_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
         output$ori_a = min(pval.ori_a,1)
       }
       # union
@@ -1192,7 +1181,7 @@ pval1_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
           c1 = rho_one_discrete(n,t,one_u,two_u,three_u)
           c1*Nu(b_u*sqrt(2*c1))
         }
-        pval.ori_u = b_u*dnorm(b_u)*integrate(integrando_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+        pval.ori_u = if (b_u <= 0) 1 else b_u*dnorm(b_u)*.gseg_integrate(integrando_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
         output$ori_u = min(pval.ori_u,1)
       }
     }
@@ -1243,7 +1232,7 @@ pval1_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
             c1 = rho_w(n, t)
             c1*Nu(b_a*sqrt(2*c1))
           }
-          pval.weighted_a = b_a*dnorm(b_a)*integrate(integrandW_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          pval.weighted_a = if (b_a <= 0) 1 else b_a*dnorm(b_a)*.gseg_integrate(integrandW_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
           output$weighted_a = min(pval.weighted_a,1)
         }
         # union
@@ -1259,7 +1248,7 @@ pval1_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
             c1 = rho_w(n, t)
             c1*Nu(b_u*sqrt(2*c1))
           }
-          pval.weighted_u = b_u*dnorm(b_u)*integrate(integrandW_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          pval.weighted_u = if (b_u <= 0) 1 else b_u*dnorm(b_u)*.gseg_integrate(integrandW_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
           output$weighted_u = min(pval.weighted_u,1)
         }
       }
@@ -1309,12 +1298,12 @@ pval1_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
             c1 = rho_w(n, t)
             c1*Nu(b_a*sqrt(2*c1))
           }
-          pval_a1 = 2*b_a*dnorm(b_a)*integrate(integrandD_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-          pval_a2 = b_a*dnorm(b_a)*integrate(integrandW_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-          pval.max.type_a = as.numeric(1-(1-min(pval_a1,1))*(1-min(pval_a2,1)))
+          pval_a1 = 2*b_a*dnorm(b_a)*.gseg_integrate(integrandD_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          pval_a2 = b_a*dnorm(b_a)*.gseg_integrate(integrandW_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          pval.max.type_a = as.numeric(.gseg_combine_tails(pval_a1, pval_a2))
           output$max.type_a = pval.max.type_a
         }else{
-          output$max.type_a = 1-(1-min(result_d_a,1))*(1-min(result_w_a,1))
+          output$max.type_a = .gseg_combine_tails(result_d_a, result_w_a)
         }
         # union
         if (!is.numeric(result_d_u) || !is.numeric(result_w_u) || result_d_u ==0 || result_w_u ==0){
@@ -1331,12 +1320,12 @@ pval1_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
             c1 = rho_w(n, t)
             c1*Nu(b_u*sqrt(2*c1))
           }
-          pval_u1 = 2*b_u*dnorm(b_u)*integrate(integrandD_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-          pval_u2 = b_u*dnorm(b_u)*integrate(integrandW_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-          pval.max.type_u = as.numeric(1-(1-min(pval_u1,1))*(1-min(pval_u2,1)))
+          pval_u1 = 2*b_u*dnorm(b_u)*.gseg_integrate(integrandD_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          pval_u2 = b_u*dnorm(b_u)*.gseg_integrate(integrandW_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          pval.max.type_u = as.numeric(.gseg_combine_tails(pval_u1, pval_u2))
           output$max.type_u = pval.max.type_u
         }else{
-          output$max.type_u = 1-(1-min(result_d_u,1))*(1-min(result_w_u,1))
+          output$max.type_u = .gseg_combine_tails(result_d_u, result_w_u)
         }
       }
     }
@@ -1351,15 +1340,15 @@ pval1_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
       x2 = rho_w(n,t)
       2*(x1*cos(w)^2+x2*sin(w)^2)*b_a*Nu(sqrt(2*b_a*(x1*cos(w)^2+x2*sin(w)^2)))/(2*pi)
     }
-    integrand0_a = function(t) {integrate(integrandG_a,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
+    integrand0_a = function(t) {.gseg_integrate(integrandG_a,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
     integrandG_u = function(t,w){
       x1 = rho_d(n,t)
       x2 = rho_w(n,t)
       2*(x1*cos(w)^2+x2*sin(w)^2)*b_u*Nu(sqrt(2*b_u*(x1*cos(w)^2+x2*sin(w)^2)))/(2*pi)
     }
-    integrand0_u = function(t) {integrate(integrandG_u,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
-    pval.generalized_a = dchisq(b_a,2)*integrate(Vectorize(integrand0_a),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
-    pval.generalized_u = dchisq(b_u,2)*integrate(Vectorize(integrand0_u),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
+    integrand0_u = function(t) {.gseg_integrate(integrandG_u,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
+    pval.generalized_a = dchisq(b_a,2)*.gseg_integrate(Vectorize(integrand0_a),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
+    pval.generalized_u = dchisq(b_u,2)*.gseg_integrate(Vectorize(integrand0_u),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
     output$generalized_a = min(pval.generalized_a,1)
     output$generalized_u = min(pval.generalized_u,1)
   }
@@ -1543,7 +1532,7 @@ skewcorr = function(E, id) {
 pval1_discrete_sub_1 = function(n,b,r,x,lower,upper){
   theta_b = rep(0,n)
   pos = which(1+2*r*b>0)
-  theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
+  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
   for(i in seq_along(theta_b[pos])){       
     if (is.na(theta_b[pos][i])==TRUE){
       theta_b[pos][i]=0
@@ -1585,15 +1574,17 @@ pval1_discrete_sub_1 = function(n,b,r,x,lower,upper){
     a[s]
   }
   
-  result = try(2*dnorm(b)*b*integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
+  result = try(2*dnorm(b)*b*.gseg_integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
   return(result)
 }
 
 # approximated p-value(skewness correction) with extrapolation for weighted statistic
 pval1_discrete_sub_2 = function(n,b,r,x,lower,upper){
+  # Conservative nonpositive-threshold handling, as in ordinary scans.
+  if (b <= 0) return(1)
   theta_b = rep(0,n)
   pos = which(1+2*r*b>0)
-  theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
+  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
   ratio = exp((b-theta_b)^2/2 + r*theta_b^3/6)/sqrt(1+r*theta_b) # S(t) in integrand
   a = x*Nu(sqrt(2*b^2*x)) * ratio
   a_na = which(is.na(a)==TRUE )
@@ -1618,7 +1609,7 @@ pval1_discrete_sub_2 = function(n,b,r,x,lower,upper){
     a[s]
   }
   
-  result = try(dnorm(b)*b*integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
+  result = try(dnorm(b)*b*.gseg_integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value, silent=T)
   return(result)
 }
 
@@ -1673,8 +1664,8 @@ pval2_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
         c1 = rho_one_discrete(n,t,one_u,two_u,three_u)
         (c1*Nu(b_u*sqrt(2*c1)))^2*(n-t)
       }
-      pval.ori_a = b_a^3*dnorm(b_a)*integrate(integrando_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-      pval.ori_u = b_u^3*dnorm(b_u)*integrate(integrando_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+      pval.ori_a = if (b_a <= 0) 1 else b_a^3*dnorm(b_a)*.gseg_integrate(integrando_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+      pval.ori_u = if (b_u <= 0) 1 else b_u^3*dnorm(b_u)*.gseg_integrate(integrando_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
       output$ori_a = min(pval.ori_a,1)
       output$ori_u = min(pval.ori_u,1)
     }
@@ -1697,8 +1688,8 @@ pval2_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
         c1 = rho_w(n, t)
         (c1*Nu(b_u*sqrt(2*c1)))^2*(n-t)
       }
-      pval.weighted_a = b_a^3*dnorm(b_a)*integrate(integrandW_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-      pval.weighted_u = b_u^3*dnorm(b_u)*integrate(integrandW_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+      pval.weighted_a = if (b_a <= 0) 1 else b_a^3*dnorm(b_a)*.gseg_integrate(integrandW_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+      pval.weighted_u = if (b_u <= 0) 1 else b_u^3*dnorm(b_u)*.gseg_integrate(integrandW_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
       output$weighted_a = min(pval.weighted_a,1)
       output$weighted_u = min(pval.weighted_u,1)
     }
@@ -1721,12 +1712,12 @@ pval2_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
         c1 = rho_w(n, t)
         (c1*Nu(b_u*sqrt(2*c1)))^2*(n-t)
       }
-      pval_a1 = 2*b_a^3*dnorm(b_a)*integrate(integrandD_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-      pval_a2 = b_a^3*dnorm(b_a)*integrate(integrandW_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-      pval.max.type_a = as.numeric(1-(1-min(pval_a1,1))*(1-min(pval_a2,1)))
-      pval_u1 = 2*b_u^3*dnorm(b_u)*integrate(integrandD_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-      pval_u2 = b_u^3*dnorm(b_u)*integrate(integrandW_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-      pval.max.type_u = as.numeric(1-(1-min(pval_u1,1))*(1-min(pval_u2,1)))
+      pval_a1 = 2*b_a^3*dnorm(b_a)*.gseg_integrate(integrandD_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+      pval_a2 = b_a^3*dnorm(b_a)*.gseg_integrate(integrandW_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+      pval.max.type_a = as.numeric(.gseg_combine_tails(pval_a1, pval_a2))
+      pval_u1 = 2*b_u^3*dnorm(b_u)*.gseg_integrate(integrandD_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+      pval_u2 = b_u^3*dnorm(b_u)*.gseg_integrate(integrandW_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+      pval.max.type_u = as.numeric(.gseg_combine_tails(pval_u1, pval_u2))
       output$max.type_a = pval.max.type_a
       output$max.type_u = pval.max.type_u
     }
@@ -1738,15 +1729,15 @@ pval2_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
         x2 = rho_w(n,t)
         (n-t)*(2*(x1*cos(w)^2+x2*sin(w)^2)*b_a*Nu(sqrt(2*b_a*(x1*cos(w)^2+x2*sin(w)^2))))^2/(2*pi)
       }
-      integrand0_a = function(t) {integrate(integrandG_a,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
+      integrand0_a = function(t) {.gseg_integrate(integrandG_a,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
       integrandG_u = function(t,w){
         x1 = rho_d(n,t)
         x2 = rho_w(n,t)
         (n-t)*(2*(x1*cos(w)^2+x2*sin(w)^2)*b_u*Nu(sqrt(2*b_u*(x1*cos(w)^2+x2*sin(w)^2))))^2/(2*pi)
       }
-      integrand0_u = function(t) {integrate(integrandG_u,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
-      pval.generalized_a = dchisq(b_a,2)*integrate(Vectorize(integrand0_a),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
-      pval.generalized_u = dchisq(b_u,2)*integrate(Vectorize(integrand0_u),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
+      integrand0_u = function(t) {.gseg_integrate(integrandG_u,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
+      pval.generalized_a = dchisq(b_a,2)*.gseg_integrate(Vectorize(integrand0_a),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
+      pval.generalized_u = dchisq(b_u,2)*.gseg_integrate(Vectorize(integrand0_u),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
       output$generalized_a = min(pval.generalized_a,1)
       output$generalized_u = min(pval.generalized_u,1)
     }
@@ -1844,7 +1835,7 @@ pval2_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
           c1 = rho_one_discrete(n,t,one_a,two_a,three_a)
           (c1*Nu(b_a*sqrt(2*c1)))^2*(n-t)
         }
-        pval.ori_a = b_a^3*dnorm(b_a)*integrate(integrando_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+        pval.ori_a = if (b_a <= 0) 1 else b_a^3*dnorm(b_a)*.gseg_integrate(integrando_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
         output$ori_a = min(pval.ori_a,1)
       }
       # union
@@ -1860,7 +1851,7 @@ pval2_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
           c1 = rho_one_discrete(n,t,one_u,two_u,three_u)
           (c1*Nu(b_u*sqrt(2*c1)))^2*(n-t)
         }
-        pval.ori_u = b_u^3*dnorm(b_u)*integrate(integrando_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+        pval.ori_u = if (b_u <= 0) 1 else b_u^3*dnorm(b_u)*.gseg_integrate(integrando_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
         output$ori_u = min(pval.ori_u,1)
       }
     }
@@ -1916,7 +1907,7 @@ pval2_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
             c1 = rho_w(n, t)
             (c1*Nu(b_a*sqrt(2*c1)))^2*(n-t)
           }
-          pval.weighted_a = b_a^3*dnorm(b_a)*integrate(integrandW_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          pval.weighted_a = if (b_a <= 0) 1 else b_a^3*dnorm(b_a)*.gseg_integrate(integrandW_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
           output$weighted_a = min(pval.weighted_a,1)
         }
         # union
@@ -1932,7 +1923,7 @@ pval2_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
             c1 = rho_w(n, t)
             (c1*Nu(b_u*sqrt(2*c1)))^2*(n-t)
           }
-          pval.weighted_u = b_u^3*dnorm(b_u)*integrate(integrandW_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          pval.weighted_u = if (b_u <= 0) 1 else b_u^3*dnorm(b_u)*.gseg_integrate(integrandW_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
           output$weighted_u = min(pval.weighted_u,1)
         }
       }
@@ -1984,12 +1975,12 @@ pval2_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
             c1 = rho_w(n, t)
             (c1*Nu(b_a*sqrt(2*c1)))^2*(n-t)
           }
-          pval_a1 = 2*b_a^3*dnorm(b_a)*integrate(integrandD_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-          pval_a2 = b_a^3*dnorm(b_a)*integrate(integrandW_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-          pval.max.type_a = as.numeric(1-(1-min(pval_a1,1))*(1-min(pval_a2,1)))
+          pval_a1 = 2*b_a^3*dnorm(b_a)*.gseg_integrate(integrandD_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          pval_a2 = b_a^3*dnorm(b_a)*.gseg_integrate(integrandW_a, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          pval.max.type_a = as.numeric(.gseg_combine_tails(pval_a1, pval_a2))
           output$max.type_a = pval.max.type_a
         }else{
-          output$max.type_a = 1-(1-min(result_d_a,1))*(1-min(result_w_a,1))
+          output$max.type_a = .gseg_combine_tails(result_d_a, result_w_a)
         }
         # union
         if (!is.numeric(result_d_u) || !is.numeric(result_w_u) || result_d_u ==0 || result_w_u ==0){
@@ -2006,12 +1997,12 @@ pval2_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
             c1 = rho_w(n, t)
             (c1*Nu(b_u*sqrt(2*c1)))^2*(n-t)
           }
-          pval_u1 = 2*b_u^3*dnorm(b_u)*integrate(integrandD_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-          pval_u2 = b_u^3*dnorm(b_u)*integrate(integrandW_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
-          pval.max.type_u = as.numeric(1-(1-min(pval_u1,1))*(1-min(pval_u2,1)))
+          pval_u1 = 2*b_u^3*dnorm(b_u)*.gseg_integrate(integrandD_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          pval_u2 = b_u^3*dnorm(b_u)*.gseg_integrate(integrandW_u, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value
+          pval.max.type_u = as.numeric(.gseg_combine_tails(pval_u1, pval_u2))
           output$max.type_u = pval.max.type_u
         }else{
-          output$max.type_u = 1-(1-min(result_d_u,1))*(1-min(result_w_u,1))
+          output$max.type_u = .gseg_combine_tails(result_d_u, result_w_u)
         }
       }
     }
@@ -2027,15 +2018,15 @@ pval2_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
       x2 = rho_w(n,t)
       (n-t)*(2*(x1*cos(w)^2+x2*sin(w)^2)*b_a*Nu(sqrt(2*b_a*(x1*cos(w)^2+x2*sin(w)^2))))^2/(2*pi)
     }
-    integrand0_a = function(t) {integrate(integrandG_a,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
+    integrand0_a = function(t) {.gseg_integrate(integrandG_a,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
     integrandG_u = function(t,w){
       x1 = rho_d(n,t)
       x2 = rho_w(n,t)
       (n-t)*(2*(x1*cos(w)^2+x2*sin(w)^2)*b_u*Nu(sqrt(2*b_u*(x1*cos(w)^2+x2*sin(w)^2))))^2/(2*pi)
     }
-    integrand0_u = function(t) {integrate(integrandG_u,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
-    pval.generalized_a = dchisq(b_a,2)*integrate(Vectorize(integrand0_a),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
-    pval.generalized_u = dchisq(b_u,2)*integrate(Vectorize(integrand0_u),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
+    integrand0_u = function(t) {.gseg_integrate(integrandG_u,0,2*pi,t=t,subdivisions=3000, stop.on.error=FALSE)$value}
+    pval.generalized_a = dchisq(b_a,2)*.gseg_integrate(Vectorize(integrand0_a),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
+    pval.generalized_u = dchisq(b_u,2)*.gseg_integrate(Vectorize(integrand0_u),lower,upper,subdivisions=3000, stop.on.error=FALSE)$value
     output$generalized_a = min(pval.generalized_a,1)
     output$generalized_u = min(pval.generalized_u,1)
   }
@@ -2048,7 +2039,7 @@ pval2_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
 pval2_discrete_sub_1 = function(n,b,r,x,lower,upper){
   theta_b = rep(0,n)
   pos = which(1+2*r*b>0)
-  theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
+  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
   for(i in seq_along(theta_b[pos])){
     if (is.na(theta_b[pos][i])==TRUE){
       theta_b[pos][i]=0
@@ -2090,15 +2081,17 @@ pval2_discrete_sub_1 = function(n,b,r,x,lower,upper){
     a[s]*(n-s)       # different from single change point
   }
   
-  result = try(2*dnorm(b)/b*integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value, silent=T) # differs from single
+  result = try(2*dnorm(b)/b*.gseg_integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value, silent=T) # differs from single
   return(result)
 }
 
 # approximated p-value(skewness correction) with extrapolation for weighted statistic
 pval2_discrete_sub_2 = function(n,b,r,x,lower,upper){
+  # Conservative nonpositive-threshold handling, as in ordinary scans.
+  if (b <= 0) return(1)
   theta_b = rep(0,n)
   pos = which(1+2*r*b>0)
-  theta_b[pos] = (sqrt((1+2*r*b)[pos])-1)/r[pos]
+  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
   ratio = exp((b-theta_b)^2/2 + r*theta_b^3/6)/sqrt(1+r*theta_b) # S(t) in integrand
   a = (b^2*x*Nu(sqrt(2*b^2*x)))^2 * ratio  ## this is different from single change-point
   a_na = which(is.na(a)==TRUE )
@@ -2123,6 +2116,6 @@ pval2_discrete_sub_2 = function(n,b,r,x,lower,upper){
     a[s]*(n-s)    # different from single change point
   }
   
-  result = try(dnorm(b)/b*integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value, silent=T) ## this is different from single 
+  result = try(dnorm(b)/b*.gseg_integrate(integrand, lower, upper, subdivisions=3000, stop.on.error=FALSE)$value, silent=T) ## this is different from single 
   return(result)
 }

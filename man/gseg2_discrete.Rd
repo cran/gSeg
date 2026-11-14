@@ -81,3 +81,27 @@ id = match(cha, unique(cha))
 
 r1 = gseg2_discrete(n, E, id, statistics="all")
 }
+
+\details{
+An interval with boundaries \code{(i, j)} contains observations
+\code{i + 1, ..., j}. When there are \code{r} tied maximizing intervals,
+\code{tauhat} (or \code{tauhat_a}/\code{tauhat_u}) retains the earlier
+layout: its first \code{r} entries are the left boundaries and its last
+\code{r} entries are the corresponding right boundaries. All returned
+intervals satisfy the requested length range after the documented endpoint
+adjustments. The analytic approximation requires a nonzero length range;
+use permutation calibration for a single permitted interval length.
+}
+
+\note{
+For the original and weighted scans, a nonpositive observed maximum returns
+the conservative analytic value 1. This is not an exact finite-sample
+p-value; permutation calibration remains available.
+
+Analytic integrations are checked for convergence and finite probability
+outputs in \code{[0,1]}. An unavailable approximation raises an error rather
+than returning an invalid probability. Setting \code{pval.appr = FALSE} allows
+justified permutation calibration to be used instead. Scan components must be
+well-defined on the requested domain; undefined components are not replaced
+by zero.
+}

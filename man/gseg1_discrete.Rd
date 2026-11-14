@@ -88,3 +88,24 @@ r1_b = gseg1_discrete(n, E, id, statistics=c("w","g"))
 # output results based on the weighted edge-count statistic 
 # and generalized edge-count statistic
 }
+
+\details{
+The requested statistic must have positive permutation variance at each
+candidate location. Graphs for which a candidate score is undefined are
+rejected rather than silently omitted. For a single candidate location,
+set \code{pval.appr = FALSE} and use permutation calibration instead of
+the continuous-range analytic scan approximation.
+}
+
+\note{
+For the original and weighted scans, a nonpositive observed maximum returns
+the conservative analytic value 1. This is not an exact finite-sample
+p-value; permutation calibration remains available.
+
+Analytic integrations are checked for convergence and finite probability
+outputs in \code{[0,1]}. An unavailable approximation raises an error rather
+than returning an invalid probability. Setting \code{pval.appr = FALSE} allows
+justified permutation calibration to be used instead. Scan components must be
+well-defined on the requested domain; undefined components are not replaced
+by zero.
+}

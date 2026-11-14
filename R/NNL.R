@@ -1,7 +1,18 @@
 # K-NNL 
 nnl = function(distance, K) {
   distance = as.matrix(distance)
-  maxdis = 1e5*max(distance)
+  if (!is.numeric(distance) || nrow(distance) != ncol(distance) ||
+      nrow(distance) < 2L || any(!is.finite(distance)) || any(distance < 0) ||
+      any(abs(diag(distance)) > sqrt(.Machine$double.eps)) ||
+      !isTRUE(all.equal(distance, t(distance), tolerance = sqrt(.Machine$double.eps)))) {
+    stop("`distance` must be a finite, nonnegative, symmetric matrix with zero diagonal and at least two observations.")
+  }
+  if (!is.numeric(K) || length(K) != 1L || !is.finite(K) ||
+      K != floor(K) || K < 1 || K > floor(nrow(distance) / 2)) {
+    stop("`K` must be an integer between 1 and floor(N/2).")
+  }
+  K = as.integer(K)
+  maxdis = Inf
   nodes = dim(distance)[1]
   tempE = vector("list",K)
   E = matrix(0,0,2)
@@ -114,7 +125,11 @@ nnlink_Com = function(distance){
   
   for (i in 1:nodes) adj[[i]] = rep(0,0)
   for (i in 1:nodes){
-    edgeid = which(distance[i,] == min(distance[i,-i]))
+    available = setdiff(which(is.finite(distance[i,])), i)
+    if (!length(available)) {
+      stop("Cannot construct another NNL layer: a vertex has no unused finite-distance neighbour.")
+    }
+    edgeid = available[distance[i, available] == min(distance[i, available])]
     adj[[i]] = c(adj[[i]],edgeid)
     
     for (j in seq_along(edgeid)){
@@ -150,11 +165,22 @@ nnlink_Com = function(distance){
 }
 
 
+# Explicit stack: component membership is independent of traversal order.
 dfs = function(s,visited,adj){
-  visited[s] = 1
-  for (i in seq_along(adj[[s]])){
-    if (visited[adj[[s]][i]] == 0){
-      visited = dfs(adj[[s]][i],visited,adj)
+  stack = integer(length(visited))
+  top = 1L
+  stack[top] = s
+  visited[s] = 1L
+  while (top > 0L){
+    u = stack[top]
+    top = top - 1L
+    for (v in adj[[u]]){
+      if (visited[v] == 0){
+        # Mark on push so each vertex occupies the stack at most once.
+        visited[v] = 1L
+        top = top + 1L
+        stack[top] = v
+      }
     }
   }
   return(visited)
