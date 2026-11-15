@@ -1,6 +1,6 @@
 Package: gSeg
-Version: 1.2
-Date: 2026-11-13
+Version: 1.2-1
+Date: 2026-11-15
 Title: Graph-Based Change-Point Detection (g-Segmentation)
 Authors@R: c(
     person(given = "Hao", family = "Chen", role = c("aut", "cre"),
@@ -11,16 +11,16 @@ Authors@R: c(
     person(given = "Hoseung", family = "Song", role = "aut")
     )
 Depends: R (>= 3.0.1)
-Imports: stats
+Imports: stats, tools
 Description: Uses similarity graphs to estimate change-points and their p-values. The main functions accept either observations or dissimilarities, construct a k-MST with k=floor(sqrt(N)) by default, and report the max-type scan. A supplied similarity graph and the generalized, original, and weighted scans remain available explicitly.
 License: GPL (>= 2)
 NeedsCompilation: yes
 SystemRequirements: C99
-Packaged: 2026-11-14 07:34:20 UTC; hao
 Author: Hao Chen [aut, cre] (ORCID: <https://orcid.org/0000-0002-4597-2773>),
   Nancy R. Zhang [aut],
   Lynna Chu [aut],
   Hoseung Song [aut]
 Maintainer: Hao Chen <hxchen@ucdavis.edu>
+Packaged: 2026-11-15 10:00:00 UTC; hao
 Repository: CRAN
-Date/Publication: 2026-11-14 08:40:10 UTC
+Date/Publication: 2026-11-15 16:00:08 UTC

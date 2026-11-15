@@ -2,7 +2,7 @@
 # are flattened row-wise and (i, j) denotes observations (i + 1), ..., j.
 .gseg_interval_argmax <- function(values, eligible, n) {
   maxima <- eligible[which(values[eligible] == max(values[eligible]))]
-  c((maxima - 1L) %/% n + 1L, (maxima - 1L) %% n + 1L)
+  as.numeric(c((maxima - 1L) %/% n + 1L, (maxima - 1L) %% n + 1L))
 }
 
 # The same inclusive-tail, plus-one convention is used for both the reported

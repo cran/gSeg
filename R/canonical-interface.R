@@ -15,6 +15,22 @@
 #' attr(E, "k")
 #' @export
 gseg_kmst <- function(x = NULL, dissimilarity = NULL, k = NULL) {
+  .gseg_construct_input(x, dissimilarity, k)$graph
+}
+
+.gseg_require_input_n <- function(N, minimum) {
+  if (is.null(N) || length(N) != 1L || !is.numeric(N) ||
+      !is.finite(N) || N < minimum) {
+    stop(if (minimum == 6L) "At least six observations are required for the scan."
+         else "At least three observations are required.")
+  }
+  invisible(NULL)
+}
+
+# Normalize/build once; N comes from the distance geometry actually constructed.
+# Keep the public graph object's original attributes unchanged.
+.gseg_construct_input <- function(x = NULL, dissimilarity = NULL, k = NULL,
+                                  .minimum = 3L) {
   if (is.null(x) == is.null(dissimilarity)) {
     stop("Supply exactly one of `x` and `dissimilarity`.")
   }
@@ -24,13 +40,14 @@ gseg_kmst <- function(x = NULL, dissimilarity = NULL, k = NULL) {
       stop("A `dist` object contains dissimilarities, not observations; supply it as `dissimilarity = ...`.")
     }
     x <- as.matrix(x)
+    .gseg_require_input_n(nrow(x), .minimum)
     if (ncol(x) < 1L) stop("`x` must have at least one observation coordinate.")
     if (nrow(x) < 3L) stop("At least three observations are required.")
     if (!is.numeric(x) || any(!is.finite(x))) {
       stop("`x` must be a finite numeric matrix.")
     }
     d <- .gseg_fast_dist(x)
-    N <- nrow(x)
+    N <- attr(d, "Size")
   } else {
     if (inherits(dissimilarity, "dist")) {
       d <- dissimilarity
@@ -42,6 +59,7 @@ gseg_kmst <- function(x = NULL, dissimilarity = NULL, k = NULL) {
       }
     } else {
       D <- as.matrix(dissimilarity)
+      .gseg_require_input_n(nrow(D), .minimum)
       if (nrow(D) != ncol(D)) stop("`dissimilarity` must be square.")
       if (!is.numeric(D)) stop("`dissimilarity` must be numeric.")
       if (any(!is.finite(D))) stop("`dissimilarity` must contain finite values.")
@@ -53,11 +71,12 @@ gseg_kmst <- function(x = NULL, dissimilarity = NULL, k = NULL) {
         stop("`dissimilarity` must be symmetric.")
       }
       d <- stats::as.dist(D)
-      N <- nrow(D)
+      N <- attr(d, "Size")
       if (N < 3L) stop("At least three observations are required.")
     }
   }
 
+  .gseg_require_input_n(N, .minimum)
   if (is.null(k)) k <- floor(sqrt(N))
   if (!is.numeric(k) || length(k) != 1L || !is.finite(k) || k < 1 ||
       k > floor(N / 2) || k != as.integer(k)) {
@@ -68,31 +87,15 @@ gseg_kmst <- function(x = NULL, dissimilarity = NULL, k = NULL) {
   E <- as.matrix(E[, 1:2, drop = FALSE])
   storage.mode(E) <- "integer"
   if (nrow(E) != k * (N - 1L) ||
-      anyDuplicated(paste(pmin(E[, 1L], E[, 2L]),
-                          pmax(E[, 1L], E[, 2L]), sep = ":"))) {
+      anyDuplicated(.gseg_edge_keys(E, N))) {
     stop("The graph constructor could not produce `k` complete edge-disjoint MST layers; set a smaller `k` or supply your own graph explicitly.")
   }
   attr(E, "k") <- k
-  E
+  list(N = N, graph = E, k = k)
 }
 
 .gseg_data_input <- function(x, dissimilarity, k) {
-  if (inherits(x, "dist")) {
-    stop("A `dist` object contains dissimilarities, not observations; supply it as `dissimilarity = ...`.")
-  }
-  if (is.null(x) == is.null(dissimilarity)) {
-    stop("Supply exactly one of `x` and `dissimilarity`.")
-  }
-  N <- if (!is.null(x)) nrow(as.matrix(x)) else if (inherits(dissimilarity, "dist")) {
-    attr(dissimilarity, "Size")
-  } else {
-    nrow(as.matrix(dissimilarity))
-  }
-  if (is.null(N) || length(N) != 1L || N < 6L) {
-    stop("At least six observations are required for the scan.")
-  }
-  graph <- gseg_kmst(x = x, dissimilarity = dissimilarity, k = k)
-  list(N = N, graph = graph, k = attr(graph, "k"))
+  .gseg_construct_input(x, dissimilarity, k, .minimum = 6L)
 }
 
 .gseg_graph_call <- function(x, dissimilarity, n, E, k, argument.names = character()) {
@@ -120,11 +123,12 @@ gseg_kmst <- function(x = NULL, dissimilarity = NULL, k = NULL) {
     return(list(graph = TRUE, N = n, E = E))
   }
 
-  positional.edges <- if (is.null(dissimilarity)) NULL else
-    try(as.matrix(dissimilarity), silent = TRUE)
+  # A scalar first positional argument plus an unnamed second input can
+  # only be a legacy graph call: scalar observations cannot be a valid
+  # two-sample input with a second dissimilarity argument. Validate/convert
+  # the edge input once in the graph implementation, not during dispatch.
   positional.graph <- !explicit.data && is.numeric(x) && length(x) == 1L &&
-    !is.null(dissimilarity) && !inherits(positional.edges, "try-error") &&
-    ncol(positional.edges) == 2L
+    !is.null(dissimilarity)
   if (positional.graph) {
     if (!is.null(k)) stop("`k` is only used when constructing a graph from data or dissimilarities.")
     return(list(graph = TRUE, N = x, E = dissimilarity))

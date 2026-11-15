@@ -66,3 +66,20 @@ justified permutation calibration rather than treating a failed approximation
 as a probability.
 
 The package uses registered native kernels for exact MST construction, finite-data Euclidean distances and existing skew-correction graph counts. These implementations retain the same graph selection, tie handling and statistical formulas; floating-point contraction is disabled during compilation.
+
+## Reference compatibility
+
+Raw observations use `stats::dist()` on every platform, as in the original
+CRAN package. Native graph construction and graph-moment optimizations remain
+active. Numerically reliable original root and tail calculations are retained;
+zero-skew/cancellation failures use stable equivalent arithmetic. Verified
+interval-index, permutation-diagnostic and validation repairs remain explicit
+behavior changes, so the complete release is not claimed output-identical to
+older versions on inputs affected by those defects.
+
+Distance compatibility (1.2-4 validation candidate): the accelerated finite
+Euclidean path is restricted to exact verified R/stats build identities and
+passes an RNG-free arithmetic self-check. Other builds use stats::dist().
+A new R installation may therefore retain reference speed until separately
+verified; no architecture-only arithmetic assumption is made. No parallelism
+or statistical parameters are changed.

@@ -1,23 +1,17 @@
-### Input validation consistency
+# gSeg 1.2-1
 
-- Matrix dissimilarities now require at least three observations, matching raw-data and `dist` inputs to `gseg_kmst()`.
-
-## Graph robustness and repeated-scan boundaries
-
-- Use an iterative component search for NNL graphs, avoiding recursion-stack exhaustion on long components.
-- Exclude used MST edges with infinity instead of a fixed finite distance; reject disconnected residual graphs explicitly. Normal-scale tie ordering is retained.
-- Align repeated-observation OET/WET nonpositive-threshold analytic output with ordinary scans, returning the conservative value 1 independently for average and union components.
-
-## Numerical stability fixes
-
-- Evaluate the skewness-correction root with its continuous zero-skewness limit, avoiding cancellation near zero.
-- Combine MET tails without subtracting from one, preserving very small positive p-values.
-- Apply both fixes to ordinary and repeated-observation single-change and interval scans. Defaults, graphs, scan statistics, permutations and extrapolation domains are unchanged.
-
-## Integrated performance implementation
-
-- Preserve default methods and outputs with native MST/distance and exact graph-count kernels; batch single-change adjacency assembly.
-- Keep scalar accumulation for x3 when an exact-in-double bound cannot be established.
+- Preserve platform-reference stats::dist arithmetic, including ARM64 rounding,
+  conversion semantics and original graph tie ordering. Use optimized finite
+  distance kernels only for verified R builds; otherwise use stats::dist.
+- Preserve original adjacency storage, neighbor ordering and graph-constructor
+  dispatch while accelerating distance, graph, scan and moment calculations.
+- Correct numerical boundary cases and reject exactly singular scan channels
+  using structural zero-variance checks, including repeated observations.
+- Avoid unused dense distance conversions during dispatch; normalize graph
+  inputs once and use the observation count of the actual distance geometry.
+- Add reference, near-tie, permutation, conversion and structural-variance
+  regression tests. Internal candidate revisions are retained in the release
+  evidence and were not separate published CRAN versions.
 
 # gSeg 1.2
 

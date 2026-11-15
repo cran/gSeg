@@ -9,7 +9,7 @@
       any(E != as.integer(E)) || any(E < 1L) || any(E > n) || any(E[,1] == E[,2])) {
     stop("`E` must be a nonempty two-column edge matrix with distinct endpoints in 1, ..., n.")
   }
-  edge.keys = paste(pmin(E[,1], E[,2]), pmax(E[,1], E[,2]), sep = ":")
+  edge.keys = .gseg_edge_keys(E, n)
   if (anyDuplicated(edge.keys)) stop("`E` must not contain duplicate undirected edges.")
   valid.statistics = c("o","ori","original","w","weighted","g","generalized","m","max","all")
   if (!is.character(statistics) || !length(statistics) || any(is.na(statistics)) ||
@@ -37,8 +37,7 @@
   n1 = floor(n1)
   Ebynode = vector("list", n)
   
-  Ebynode = unname(split(as.vector(t(E[,2:1,drop=FALSE])),
-                         factor(as.vector(t(E)),levels=seq_len(n))))
+  Ebynode = .gseg_adjacency(E, n)
   
   n0_us = n0
   n1_us = n1
@@ -155,7 +154,7 @@
       any(E != as.integer(E)) || any(E < 1L) || any(E > n) || any(E[,1] == E[,2])) {
     stop("`E` must be a nonempty two-column edge matrix with distinct endpoints in 1, ..., n.")
   }
-  edge.keys = paste(pmin(E[,1], E[,2]), pmax(E[,1], E[,2]), sep = ":")
+  edge.keys = .gseg_edge_keys(E, n)
   if (anyDuplicated(edge.keys)) stop("`E` must not contain duplicate undirected edges.")
   valid.statistics = c("o","ori","original","w","weighted","g","generalized","m","max","all")
   if (!is.character(statistics) || !length(statistics) || any(is.na(statistics)) ||
@@ -310,6 +309,8 @@ gcp1bynode = function(n, Ebynode, statistics="all", n0=ceiling(0.05*n), n1=floor
   for(i in 1:n) nodedeg[i] = length(Ebynode[[i]])
   sumEisq = sum(nodedeg^2)
   nE = sum(nodedeg)/2
+  .gseg_check_discrete_structure(rep.int(1, n), nodedeg, nodedeg,
+    statistics, n0:n1, channel.names = c("graph", "graph"))
 
   g = rep(1,n)
   R = rep(0,n)
@@ -409,6 +410,8 @@ gcp2bynode = function(n, Ebynode, statistics="all", l0=ceiling(0.05*n), l1=floor
   for(i in 1:n) nodedeg[i] = length(Ebynode[[i]])
   sumEisq = sum(nodedeg^2)
   nE = sum(nodedeg)/2
+  .gseg_check_discrete_structure(rep.int(1, n), nodedeg, nodedeg,
+    statistics, l0:l1, channel.names = c("graph", "graph"))
 
   Rtmp = R1 = R2 = Rw = matrix(0,n,n)
  
@@ -646,7 +649,7 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
   x3 = .gseg_graph_x3(deg,E)
   x4 = sum(deg*(deg-1)*(sumE-deg))
   x5 = 0
-  x5 = .gseg_native_x5(n,E)
+  x5 = .gseg_native_x5(n,E,Ebynode)
   if(is.null(x5)) {
     x5 = 0
     for(i in seq_len(nrow(E))) x5 = x5+length(which(!is.na(match(Ebynode[[E[i,1]]],Ebynode[[E[i,2]]]))))
@@ -667,7 +670,7 @@ pval1 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, lower=c
       r = (mu^3 + 3*mu*sig^2 - ER3)/sig^3
       theta_b = rep(0,n)
       pos = which(1+2*r*b>0)
-      theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
+      theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos], r[pos])
       ratio = exp((b-theta_b)^2/2 + r*theta_b^3/6)/sqrt(1+r*theta_b)
       a = x*Nu(sqrt(2*b^2*x)) * ratio
       nn = n-length(pos)
@@ -860,7 +863,7 @@ pval1_sub_1 = function(n,b,r,x,lower,upper){
   }
   theta_b = rep(0,n-1)
   pos = which(1+2*r*b>0)
-  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
+  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos], r[pos])
   for(i in seq_along(theta_b[pos])){
     if (is.na(theta_b[pos][i])==TRUE){
       theta_b[pos][i]=0
@@ -909,7 +912,7 @@ pval1_sub_2 = function(n,b,r,x,lower,upper){
   }
   theta_b = rep(0,n-1)
   pos = which(1+2*r*b>0)
-  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
+  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos], r[pos])
   ratio = exp((b-theta_b)^2/2 + r*theta_b^3/6)/sqrt(1+r*theta_b)
   a = x*Nu(sqrt(2*b^2*x)) * ratio
   a_na = which(is.na(a)==TRUE )
@@ -1046,7 +1049,7 @@ pval2 = function(n, E, Ebynode, scanZ, statistics="all", skew.corr=TRUE, l0=ceil
       r = (mu^3 + 3*mu*sig^2 - ER3)/sig^3
       theta_b = rep(0,n)
       pos = which(1+2*r*b>0)
-      theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
+      theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos], r[pos])
       ratio = exp((b-theta_b)^2/2 + r*theta_b^3/6)/sqrt(1+r*theta_b)
       a = (b^2*x*Nu(sqrt(2*b^2*x)))^2 * ratio
       nn = n-length(pos)
@@ -1242,7 +1245,7 @@ pval2_sub_1 = function(n,b,r,x,l0,l1){
   }
   theta_b = rep(0,n-1)
   pos = which(1+2*r*b>0)
-  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
+  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos], r[pos])
   for(i in seq_along(theta_b[pos])){
     if (is.na(theta_b[pos][i])==TRUE){
       theta_b[pos][i]=0
@@ -1292,7 +1295,7 @@ pval2_sub_2 = function(n,b,r,x,l0,l1){
   }
   theta_b = rep(0,n-1)
   pos = which(1+2*r*b>0)
-  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
+  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos], r[pos])
   ratio = exp((b-theta_b)^2/2 + r*theta_b^3/6)/sqrt(1+r*theta_b)
 
   a = (b^2*x*Nu(sqrt(2*b^2*x)))^2 * ratio  ## this is different from single change-point

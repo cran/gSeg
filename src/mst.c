@@ -14,10 +14,12 @@
 #include <limits.h>
 SEXP gseg_mst_exact(SEXP distances, SEXP size, SEXP layers) {
  int n=asInteger(size), kmax=asInteger(layers);
- if(TYPEOF(distances)!=REALSXP || n<2 || kmax<1 || kmax>=n)
+ if((TYPEOF(distances)!=REALSXP && TYPEOF(distances)!=INTSXP) || n<2 || kmax<1 || kmax>=n)
   error("Invalid prototype MST input");
  R_xlen_t nn=(R_xlen_t)n*n;
  if(XLENGTH(distances)!=(R_xlen_t)n*(n-1)/2)error("Invalid dist length");
+ int nprotect=0;
+ if(TYPEOF(distances)==INTSXP){distances=PROTECT(coerceVector(distances,REALSXP));nprotect++;}
  double *dm=(double*)R_alloc((size_t)nn,sizeof(double));
  unsigned char *used=(unsigned char*)R_alloc((size_t)nn,sizeof(unsigned char));
  memset(used,0,(size_t)nn);
@@ -25,7 +27,7 @@ SEXP gseg_mst_exact(SEXP distances, SEXP size, SEXP layers) {
  for(int j=0;j<n;j++){
   dm[(R_xlen_t)j*n+j]=R_PosInf;
   for(int i=j+1;i<n;i++){
-   double v=d[at++];if(!R_FINITE(v))error("Nonfinite distance");
+   double v=d[at++];if(!R_FINITE(v))error("NA/NaN/Inf in foreign function call (arg 1)");
    dm[(R_xlen_t)j*n+i]=v;dm[(R_xlen_t)i*n+j]=v;
   }
  }
@@ -38,14 +40,14 @@ SEXP gseg_mst_exact(SEXP distances, SEXP size, SEXP layers) {
   for(int i=0;i<np;i++){nit[i]=i;ui[i]=row[i];ji[i]=kp;}
   while(np>0){
    row=dm+(R_xlen_t)kp*n;
-   double lane_best[4]={R_PosInf,R_PosInf,R_PosInf,R_PosInf};
-   int lane_ix[4]={-1,-1,-1,-1};int i=0;
+   double lane_best[8]={R_PosInf,R_PosInf,R_PosInf,R_PosInf,R_PosInf,R_PosInf,R_PosInf,R_PosInf};
+   int lane_ix[8]={-1,-1,-1,-1,-1,-1,-1,-1};int i=0;
 #define STEP(L) {int at=i+(L);double v=row[nit[at]];if(ui[at]>v){ui[at]=v;ji[at]=kp;}if(ui[at]<=lane_best[L]){lane_best[L]=ui[at];lane_ix[L]=at;}}
-   for(;i+3<np;i+=4){STEP(0);STEP(1);STEP(2);STEP(3);}
+   for(;i+7<np;i+=8){STEP(0);STEP(1);STEP(2);STEP(3);STEP(4);STEP(5);STEP(6);STEP(7);}
 #undef STEP
    for(;i<np;i++){double v=row[nit[i]];if(ui[i]>v){ui[i]=v;ji[i]=kp;}if(ui[i]<=lane_best[0]){lane_best[0]=ui[i];lane_ix[0]=i;}}
    double best=lane_best[0];int ix=lane_ix[0];
-   for(int l=1;l<4;l++)if(lane_best[l]<best||(lane_best[l]==best&&lane_ix[l]>ix)){best=lane_best[l];ix=lane_ix[l];}
+   for(int l=1;l<8;l++)if(lane_best[l]<best||(lane_best[l]==best&&lane_ix[l]>ix)){best=lane_best[l];ix=lane_ix[l];}
    if(ix<0 || !R_FINITE(best))
     error("The graph constructor could not produce `k` complete edge-disjoint MST layers; set a smaller `k` or supply your own graph explicitly.");
    a[ne]=nit[ix];b[ne]=ji[ix];ne++;kp=nit[ix];
@@ -63,5 +65,5 @@ SEXP gseg_mst_exact(SEXP distances, SEXP size, SEXP layers) {
  for(int j=0;j<n;j++)for(int i=0;i<j;i++)if(used[(R_xlen_t)j*n+i]){
   edge[q]=i+1;edge[q+count]=j+1;q++;
  }
- UNPROTECT(1);return ans;
+ UNPROTECT(nprotect+1);return ans;
 }

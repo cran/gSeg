@@ -14,7 +14,7 @@ gseg1_discrete = function(n, E, id, statistics="m", n0=0.05*n, n1=0.95*n, pval.a
       any(E != as.integer(E)) || any(E < 1L) || any(E > max(id)) || any(E[,1] == E[,2])) {
     stop("`E` must be a nonempty two-column edge matrix with valid distinct endpoints.")
   }
-  edge.keys = paste(pmin(E[,1], E[,2]), pmax(E[,1], E[,2]), sep = ":")
+  edge.keys = .gseg_edge_keys(E, n)
   if (anyDuplicated(edge.keys)) stop("`E` must not contain duplicate undirected edges.")
   valid.statistics = c("o","ori","original","w","weighted","g","generalized","m","max","all")
   if (!is.character(statistics) || !length(statistics) || any(is.na(statistics)) ||
@@ -165,7 +165,7 @@ gseg2_discrete = function(n, E, id, statistics="m", l0=0.05*n, l1=0.95*n, pval.a
       any(E != as.integer(E)) || any(E < 1L) || any(E > max(id)) || any(E[,1] == E[,2])) {
     stop("`E` must be a nonempty two-column edge matrix with valid distinct endpoints.")
   }
-  edge.keys = paste(pmin(E[,1], E[,2]), pmax(E[,1], E[,2]), sep = ":")
+  edge.keys = .gseg_edge_keys(E, n)
   if (anyDuplicated(edge.keys)) stop("`E` must not contain duplicate undirected edges.")
   valid.statistics = c("o","ori","original","w","weighted","g","generalized","m","max","all")
   if (!is.character(statistics) || !length(statistics) || any(is.na(statistics)) ||
@@ -309,7 +309,7 @@ gcp1bynode_discrete = function(n, E, id, statistics="all", n0=ceiling(0.05*n), n
   # To estimate the change-point, we find the maximum of Z(t), the standardized
   # version of R(t), between n1 and n2.
   
-  temp = getMV_discrete1(E,id)
+  temp = getMV_discrete1(E,id,statistics,n0:n1)
   muo_a = temp$muo_a
   muo_u = temp$muo_u
   varo_a = temp$varo_a
@@ -466,7 +466,7 @@ getR1R2_discrete1 = function(E, id) {
 
 # supporting function for gcp1bynode_discrete
 # give the mu, var or cov of test statistics such as E(R1_a(t))
-getMV_discrete1 = function(E, id) {
+getMV_discrete1 = function(E, id, check.statistics = NULL, check.sizes = NULL) {
   n = length(id) 
   K = length(unique(id)) 
   nE = dim(E)[1] # the number of edge
@@ -524,6 +524,9 @@ getMV_discrete1 = function(E, id) {
   var2_u = (q1-q3)*G + (q2-q3)*sum(mk*nodedeg_u*(nodedeg_u-1)) + (q3-q1^2)*G^2
   var12_u = f1*(G^2-G-sum(mk*nodedeg_u*(nodedeg_u-1))) - p1*q1*G^2
   
+  if (!is.null(check.statistics))
+    .gseg_check_discrete_structure(mk, nodedeg_a, nodedeg_u, check.statistics, check.sizes)
+
   return(list(mu1_a=mu1_a,mu2_a=mu2_a,var1_a=var1_a,var2_a=var2_a,var12_a=var12_a,
               mu1_u=mu1_u,mu2_u=mu2_u,var1_u=var1_u,var2_u=var2_u,var12_u=var12_u,
               muo_a=muo_a,muo_u=muo_u,varo_a=varo_a,varo_u=varo_u))
@@ -540,7 +543,7 @@ gcp2bynode_discrete = function(n, E, id, statistics="all", l0=ceiling(0.05*n), l
   # version of R(t), between n1 and n2.
   
   # use the same function in gcp1bynode_discrete
-  temp = getMV_discrete1(E,id)
+  temp = getMV_discrete1(E,id,statistics,l0:l1)
   muo_a = temp$muo_a
   muo_u = temp$muo_u
   varo_a = temp$varo_a
@@ -671,10 +674,18 @@ gcp2bynode_discrete = function(n, E, id, statistics="all", l0=ceiling(0.05*n), l
       if (length(which(!is.na(match(c("m","max","all"), statistics))))>0) {
         M_a = rep(0,n*n)
         M_a[ids] = apply(cbind(abs(Zdv_a[ids]),Zwv_a[ids]), 1, max)
+        # Preserve the original display values outside the requested domain.
+        # Inside the domain, undefined weighted scores must remain undefined.
+        outside_a = ids[(difv[ids] < l0 | difv[ids] > l1) & is.nan(Zwv_a[ids])]
+        M_a[outside_a] = pmax(abs(Zdv_a[outside_a]), 0)
         M_a_max = max(M_a[ids2])
         tauhat_a = .gseg_interval_argmax(M_a, ids2, n)
         M_u = rep(0,n*n)
         M_u[ids] = apply(cbind(abs(Zdv_u[ids]),Zwv_u[ids]), 1, max)
+        # Preserve the original display values outside the requested domain.
+        # Inside the domain, undefined weighted scores must remain undefined.
+        outside_u = ids[(difv[ids] < l0 | difv[ids] > l1) & is.nan(Zwv_u[ids])]
+        M_u[outside_u] = pmax(abs(Zdv_u[outside_u]), 0)
         M_u_max = max(M_u[ids2])
         tauhat_u = .gseg_interval_argmax(M_u, ids2, n)
         
@@ -1532,7 +1543,7 @@ skewcorr = function(E, id) {
 pval1_discrete_sub_1 = function(n,b,r,x,lower,upper){
   theta_b = rep(0,n)
   pos = which(1+2*r*b>0)
-  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
+  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos], r[pos])
   for(i in seq_along(theta_b[pos])){       
     if (is.na(theta_b[pos][i])==TRUE){
       theta_b[pos][i]=0
@@ -1584,7 +1595,7 @@ pval1_discrete_sub_2 = function(n,b,r,x,lower,upper){
   if (b <= 0) return(1)
   theta_b = rep(0,n)
   pos = which(1+2*r*b>0)
-  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
+  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos], r[pos])
   ratio = exp((b-theta_b)^2/2 + r*theta_b^3/6)/sqrt(1+r*theta_b) # S(t) in integrand
   a = x*Nu(sqrt(2*b^2*x)) * ratio
   a_na = which(is.na(a)==TRUE )
@@ -2039,7 +2050,7 @@ pval2_discrete = function(n, E, id, scanZ, statistics="all", skew.corr=TRUE, low
 pval2_discrete_sub_1 = function(n,b,r,x,lower,upper){
   theta_b = rep(0,n)
   pos = which(1+2*r*b>0)
-  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
+  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos], r[pos])
   for(i in seq_along(theta_b[pos])){
     if (is.na(theta_b[pos][i])==TRUE){
       theta_b[pos][i]=0
@@ -2091,7 +2102,7 @@ pval2_discrete_sub_2 = function(n,b,r,x,lower,upper){
   if (b <= 0) return(1)
   theta_b = rep(0,n)
   pos = which(1+2*r*b>0)
-  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos])
+  theta_b[pos] = .gseg_saddlepoint_root(b, (1+2*r*b)[pos], r[pos])
   ratio = exp((b-theta_b)^2/2 + r*theta_b^3/6)/sqrt(1+r*theta_b) # S(t) in integrand
   a = (b^2*x*Nu(sqrt(2*b^2*x)))^2 * ratio  ## this is different from single change-point
   a_na = which(is.na(a)==TRUE )
